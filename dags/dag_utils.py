@@ -1,0 +1,125 @@
+from datetime import datetime, timedelta
+import os
+import re
+import yaml
+from airflow.models.dag import DAG
+from airflow.providers.docker.operators.docker import DockerOperator
+from docker.types import Mount
+
+YESTERDAY = datetime.today() - timedelta(days=1)
+
+YAML_DIR = "/yaml_dags"
+
+
+def read_yaml_dags():
+    yaml_dag_files = [yaml_file for yaml_file in os.listdir(YAML_DIR)]
+    yaml_dag_files = [os.path.join(YAML_DIR, yaml_file) for yaml_file in yaml_dag_files]
+    yaml_dag_files = [
+        yaml_file
+        for yaml_file in yaml_dag_files
+        if os.path.isfile(yaml_file)
+        and (yaml_file.endswith(".yaml") or yaml_file.endswith(".yml"))
+    ]
+
+    dags_from_yaml = []
+    for yaml_file in yaml_dag_files:
+        try:
+            with open(yaml_file, "r") as f:
+                dags_from_yaml.append(yaml.safe_load(f))
+        except Exception:
+            print(f"Unable to load YAML file {yaml_file}. It will be skipped.")
+
+    return dags_from_yaml
+
+
+def create_legal_dag_id(subject_slash_timepoint, replace_char="_"):
+    legal_chars = "A-Za-z0-9_-"
+    legal_id = re.sub(rf"[^{legal_chars}]", replace_char, subject_slash_timepoint)
+    return legal_id
+
+
+def make_default_display_name(task_id: str) -> str:
+    return task_id.replace("_", " ").title()
+
+
+def make_dag(
+    dag_id,
+    dag_display_name,
+    tags,
+    doc_md,
+    schedule,
+    operators,
+    datasets_list,
+    **dag_kwargs,
+):
+    pause_dag_on_creation = (
+        os.getenv("PAUSE_YAML_DAGS_ON_CREATION", False).lower() == "true"
+    )
+    with DAG(
+        dag_id=dag_id,
+        dag_display_name=dag_display_name,
+        catchup=True,
+        max_active_runs=1,
+        schedule=schedule,
+        start_date=YESTERDAY,
+        is_paused_upon_creation=pause_dag_on_creation,
+        tags=tags,
+        doc_md=doc_md,
+        **dag_kwargs,
+    ) as dag:
+        prev_operator = None
+
+        for i, operator_definition in enumerate(operators):
+            task_id = operator_definition.pop("task_id", None)
+            command = operator_definition["command"]
+            if isinstance(command, str):
+                command = command.split(" ")
+
+            if task_id is None:
+                task_id = command[0]
+
+            task_display_name = operator_definition.pop(
+                "task_display_name", make_default_display_name(task_id)
+            )
+            image = operator_definition["image"]
+            raw_mounts = operator_definition.get("mounts")
+            if raw_mounts:
+                mount_replacements = {
+                    "INPUT_DATA_DIR": os.getenv("HOST_INPUT_DATA_DIR"),
+                    "DATA_DIR": os.getenv("HOST_DATA_DIR"),
+                    "WORKSPACE_DIR": os.getenv("HOST_WORKSPACE_DIR"),
+                }
+
+                replaced_mounts = []
+                for mount in raw_mounts:
+                    for original_value, new_value in mount_replacements.items():
+                        mount = mount.replace(original_value, new_value)
+                    replaced_mounts.append(mount)
+
+                split_mounts = [
+                    mount.rsplit(":", maxsplit=1) for mount in replaced_mounts
+                ]
+                mounts = [
+                    Mount(source=split_mount[0], target=split_mount[1], type="bind")
+                    for split_mount in split_mounts
+                ]
+            else:
+                mounts = None
+
+            if i == (len(operators) - 1):
+                outlets = None
+            else:
+                outlets = [datasets_list]
+            operator = DockerOperator(
+                task_id=task_id,
+                task_display_name=task_display_name,
+                image=image,
+                command=command,
+                mounts=mounts,
+                auto_remove="success",
+                outlets=outlets,
+            )
+
+            if prev_operator is not None:
+                prev_operator >> operator
+            prev_operator = operator

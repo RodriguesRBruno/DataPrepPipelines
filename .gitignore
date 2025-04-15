@@ -1,0 +1,8 @@
+CheXPert-v1.0-small/
+data/** */
+.env
+config/
+logs/
+plugins/
+__pycache__/
+data/
