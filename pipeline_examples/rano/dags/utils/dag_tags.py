@@ -1,0 +1,16 @@
+ALL_SUBJECTS = "All Subjects"
+SETUP = "Setup"
+FINISH = "Finish"
+NIFTI_CONVERSION = "NIfTI Conversion"
+TUMOR_EXTRACTION = "Tumor Extraction"
+MANUAL_APPROVAL = "Manual Approval"
+SUMMARIZER = "Summarizer"
+
+DEFAULT_SUBJECT_TAGS = [
+    ALL_SUBJECTS,
+    SETUP,
+    FINISH,
+    NIFTI_CONVERSION,
+    TUMOR_EXTRACTION,
+    MANUAL_APPROVAL,
+]

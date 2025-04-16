@@ -1,7 +1,7 @@
 from __future__ import annotations
 from airflow.datasets import Dataset
 
-from dags.dag_utils import make_dag, make_default_display_name, read_yaml_dags
+from dag_utils import make_dag, make_default_display_name, read_yaml_dags
 
 dags_from_yaml = read_yaml_dags()
 for dag_from_yaml in dags_from_yaml:

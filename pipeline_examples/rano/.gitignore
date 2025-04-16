@@ -1,0 +1,17 @@
+*.csv
+*.txt
+*.nii.gz
+*.zip
+*.mat
+*.dcm
+*.png
+**workspace*/*
+!requirements.txt
+!*/workspace/parameters.yaml
+models
+tmpmodel
+**/data_prep_models/
+**/constants.py
+**/CreateCSVForDICOMs.py
+**/figure_generator_wrapper.py
+**/PrepareDataset.py
