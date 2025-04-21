@@ -80,8 +80,10 @@ with DAG(
                 task_list = all_dags[dag_id].tasks
                 for task in task_list:
                     task.state = State.NONE
+                run_state = State.NONE
             else:
                 task_list = run_obj.get_task_instances()
+                run_state = run_obj.state
 
             for task in task_list:
                 update_dict = {
@@ -90,34 +92,42 @@ with DAG(
                     "DAG Tags": dag_tags,
                     "DAG ID": dag_id,
                     "Task Status": task.state,
+                    "Run Status": run_state,
                 }
                 task_df = pd.DataFrame([update_dict])
                 progress_df = pd.concat([progress_df, task_df])
 
         progress_df = progress_df.sort_values(by=["DAG ID", "Task ID"])
         all_tasks = progress_df["Task Name"].unique()
+        all_dag_tags = progress_df["DAG Tags"].explode().unique()
         summary_dict = defaultdict(lambda: dict())
 
         for task_name in all_tasks:
             relevant_df = progress_df[progress_df["Task Name"] == task_name]
-            success_ratio = len(
+            task_success_ratio = len(
                 relevant_df[relevant_df["Task Status"] == State.SUCCESS]
             ) / len(relevant_df)
-            sucess_percentage = round(success_ratio * 100, 3)
+            sucess_percentage = round(task_success_ratio * 100, 3)
             dag_tag_list = relevant_df["DAG Tags"].explode().unique()
-            dag_id_list = relevant_df["DAG ID"].explode().unique()
-            for dag_id in dag_id_list:
-                for dag_tag in dag_tag_list:
-                    summary_dict[dag_tag][task_name] = sucess_percentage
+            for dag_tag in dag_tag_list:
+                summary_dict[dag_tag][task_name] = sucess_percentage
 
+        for dag_tag in all_dag_tags:
+            relevant_df = progress_df[
+                progress_df["DAG Tags"].apply(lambda x: dag_tag in x)
+            ]
+            dag_run_completion = len(
+                relevant_df[relevant_df["Run Status"] == State.SUCCESS]
+            ) / len(relevant_df)
+            dag_sucess_percentage = round(dag_run_completion * 100, 3)
+            summary_dict[dag_tag]["DAG Completion"] = dag_sucess_percentage
         summary_dict = dict(summary_dict)
 
         execution_status = "done"
         for dag_id, task_dict in summary_dict.items():
-            for task_name, completion in task_dict.items():
-                if completion < 100.0:
-                    execution_status = "running"
-                    break
+            if task_dict["DAG Completion"] < 100.0:
+                execution_status = "running"
+                break
 
         report_summary = ReportSummary(
             execution_status=execution_status, progress_dict=summary_dict
