@@ -11,37 +11,6 @@ AIRFLOW_DATA_DIR = os.getenv("AIRFLOW_DATA_DIR")
 AIRFLOW_INPUT_DATA_DIR = os.getenv("AIRFLOW_INPUT_DATA_DIR")
 
 
-class ReportSummary:
-
-    _REPORT_SUMMARY_FAILE = os.path.join(
-        AIRFLOW_WORKSPACE_DIR, "report_summary.yaml"
-    )  # TODO maybe use Workspace dir?
-
-    def __init__(
-        self,
-        execution_status: Literal["running", "failure", "done"],
-        progress_dict: dict[str, Any] = None,
-    ):
-        self.execution_status = execution_status
-        self.progress_dict = progress_dict if progress_dict is not None else {}
-
-    def to_dict(self):
-        report_dict = {
-            "execution_status": self.execution_status,
-            "progress": self.progress_dict,
-        }
-        return report_dict
-
-    def write_yaml(self):
-        report_dict = self.to_dict()
-        with open(self._REPORT_SUMMARY_FAILE, "w") as f:
-            yaml.dump(
-                report_dict,
-                f,
-                sort_keys=False,
-            )
-
-
 def create_legal_id(subject_slash_timepoint, restrictive=False):
     import re
 

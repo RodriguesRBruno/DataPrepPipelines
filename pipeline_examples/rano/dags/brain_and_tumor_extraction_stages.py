@@ -32,7 +32,7 @@ for subject_slash_timepoint in SUBJECT_TIMEPOINT_LIST:
         schedule=[inlet_dataset],
         start_date=YESTERDAY,
         is_paused_upon_creation=False,
-        tags=[subject_slash_timepoint, dag_tags.TUMOR_EXTRACTION],
+        tags=[f"Subject {subject_slash_timepoint}", dag_tags.TUMOR_EXTRACTION],
     ) as dag:
 
         brain_extraction_stage = ContainerOperatorFactory.get_operator(

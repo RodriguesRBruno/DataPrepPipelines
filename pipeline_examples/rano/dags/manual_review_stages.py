@@ -64,7 +64,7 @@ for subject_slash_timepoint in SUBJECT_TIMEPOINT_LIST:
         schedule=[inlet_dataset],
         start_date=YESTERDAY,
         is_paused_upon_creation=False,
-        tags=[subject_slash_timepoint, dag_tags.MANUAL_APPROVAL],
+        tags=[f"Subject {subject_slash_timepoint}", dag_tags.MANUAL_APPROVAL],
         doc_md=dag_doc,
     ) as dag:
 

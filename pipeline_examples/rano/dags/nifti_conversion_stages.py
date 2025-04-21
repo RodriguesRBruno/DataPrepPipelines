@@ -29,7 +29,7 @@ for subject_slash_timepoint in SUBJECT_TIMEPOINT_LIST:
         schedule=[SETUP_DATASET],
         start_date=YESTERDAY,
         is_paused_upon_creation=False,
-        tags=[subject_slash_timepoint, dag_tags.NIFTI_CONVERSION],
+        tags=[f"Subject {subject_slash_timepoint}", dag_tags.NIFTI_CONVERSION],
         doc_md="Converting DICOM images to NIfTI",
     ) as dag:
 

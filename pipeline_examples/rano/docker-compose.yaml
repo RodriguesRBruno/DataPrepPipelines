@@ -43,7 +43,6 @@ x-airflow-common:
     - ${INPUT_DATA_DIR:-./input_data}:/input_data
     - ${DATA_DIR:-./workspace/data}:/data
     - /var/run/docker.sock:/var/run/docker.sock:rw
-    - /path/to/local/dags/dir:/opt/airflow/dags
 
   user: "${AIRFLOW_UID:-50000}:0"
   depends_on:
