@@ -13,6 +13,9 @@ YAML_DIR = "/yaml_dags"
 AIRFLOW_WORKSPACE_DIR = os.getenv("AIRFLOW_WORKSPACE_DIR")
 AIRFLOW_DATA_DIR = os.getenv("AIRFLOW_DATA_DIR")
 AIRFLOW_INPUT_DATA_DIR = os.getenv("AIRFLOW_INPUT_DATA_DIR")
+HOST_WORKSPACE_DIR = os.getenv("HOST_WORKSPACE_DIR")
+HOST_DATA_DIR = os.getenv("HOST_DATA_DIR")
+HOST_INPUT_DATA_DIR = os.getenv("HOST_INPUT_DATA_DIR")
 
 
 class ReportSummary:
@@ -46,7 +49,7 @@ class ReportSummary:
             )
 
 
-def read_yaml_dags():
+def read_yaml_steps():
     yaml_dag_files = [yaml_file for yaml_file in os.listdir(YAML_DIR)]
     yaml_dag_files = [os.path.join(YAML_DIR, yaml_file) for yaml_file in yaml_dag_files]
     yaml_dag_files = [
@@ -56,15 +59,14 @@ def read_yaml_dags():
         and (yaml_file.endswith(".yaml") or yaml_file.endswith(".yml"))
     ]
 
-    dags_from_yaml = []
-    for yaml_file in yaml_dag_files:
-        try:
-            with open(yaml_file, "r") as f:
-                dags_from_yaml.append(yaml.safe_load(f))
-        except Exception:
-            print(f"Unable to load YAML file {yaml_file}. It will be skipped.")
+    yaml_file = yaml_dag_files[0]
+    try:
+        with open(yaml_file, "r") as f:
+            yaml_dag_info = yaml.safe_load(f)
+    except Exception:
+        print(f"Unable to load YAML file {yaml_file}. It will be skipped.")
 
-    return dags_from_yaml
+    return yaml_dag_info["steps"]
 
 
 def create_legal_dag_id(subject_slash_timepoint, replace_char="_"):

@@ -1,33 +1,16 @@
 from __future__ import annotations
-from airflow.datasets import Dataset
+from dag_utils import read_yaml_steps
+from operator_factory import operator_factory
+from airflow.models.dag import DAG
 
-from dag_utils import make_dag, make_default_display_name, read_yaml_dags
+steps_from_yaml = read_yaml_steps()
+operator_mapping = {step["id"]: operator_factory(**step) for step in steps_from_yaml}
 
-dags_from_yaml = read_yaml_dags()
-for dag_from_yaml in dags_from_yaml:
-    first_dag = True
-    dag_list = dag_from_yaml["dags"]
-    datasets_list = []
-    subjects_list = None
+with DAG(dag_id="yaml_test", dag_display_name="YAML TEST") as dag:
 
-    for i, dag in enumerate(dag_list):
-        dag_id = dag.pop("dag_id")
-        dag_display_name = dag.pop(
-            "dag_display_name", make_default_display_name(dag_id)
-        )
-        tags = dag.pop("tags", None)
-        doc_md = dag.pop("doc_md", None)
-        operators = dag.pop("operators", [])
-        schedule = "@once" if i == 0 else datasets_list
-        datasets_list = []
+    for operator_id, operator_builder in operator_mapping.items():
+        if operator_builder.next_id is None:
+            continue
 
-        make_dag(
-            dag_id=dag_id,
-            dag_display_name=dag_display_name,
-            tags=tags,
-            doc_md=doc_md,
-            schedule=schedule,
-            operators=operators,
-            datasets_list=datasets_list,
-        )
-        datasets_list.append(Dataset(dag_id))
+        next_operator = operator_mapping[operator_builder.next_id]
+        operator_builder.airflow_operator >> next_operator.airflow_operator

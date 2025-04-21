@@ -1,26 +1,33 @@
-base_docker: &BASE_DOCKER
-  - type: docker
+steps:
+  - id: prepare
+    type: container
     image: mlcommons/chexpert-prep:0.1.0
-    mounts:  &BASE_MOUNTS
+    command: prepare --data_path /workspace/CheXPert-v1.0-small --labels_path /workspace/CheXPert-v1.0-small --parameters_file /workspace/parameters.yaml --output_path /data
+    mounts:
       - WORKSPACE_DIR:/workspace
       - INPUT_DATA_DIR:/workspace/CheXPert-v1.0-small
       - DATA_DIR:/data
-dags:
-  - dag_id:  chexpert_pipeline_yaml
-    dag_display_name: CheXPert Pipeline - From YAML 
-    doc_md: "Example DAG for the CheXpert data preparation"
-    tags:
-      - All Subjects
-    operators: 
-      - <<: *BASE_DOCKER
-        command: prepare --data_path /workspace/CheXPert-v1.0-small --labels_path /workspace/CheXPert-v1.0-small --parameters_file /workspace/parameters.yaml --output_path /data
-        task_id: prepare
-        task_display_name: Data Preparation
-      - <<: *BASE_DOCKER
-        command: sanity_check --data_path /data --parameters_file /workspace/parameters.yaml
-        task_id: sanity_check
-        task_display_name: Sanity Check
-      - <<: *BASE_DOCKER
-        command: statistics --data_path /data --parameters_file /workspace/parameters.yaml --output_path /data/statistics.yaml
-        task_id: statistics
-        task_display_name: Generate Statistics
+    next: sanity_check
+    on_error: do_something
+
+  - id: sanity_check
+    type: container
+    image: mlcommons/chexpert-prep:0.1.0
+    command: sanity_check --data_path /data --parameters_file /workspace/parameters.yaml
+    mounts:
+      - WORKSPACE_DIR:/workspace
+      - INPUT_DATA_DIR:/workspace/CheXPert-v1.0-small
+      - DATA_DIR:/data
+    next: statistics
+    on_error: do_something
+
+  - id: statistics
+    type: container
+    image: mlcommons/chexpert-prep:0.1.0
+    command: statistics --data_path /data --parameters_file /workspace/parameters.yaml --output_path /data/statistics.yaml
+    mounts:
+      - WORKSPACE_DIR:/workspace
+      - INPUT_DATA_DIR:/workspace/CheXPert-v1.0-small
+      - DATA_DIR:/data
+    next: null
+    on_error: do_something
