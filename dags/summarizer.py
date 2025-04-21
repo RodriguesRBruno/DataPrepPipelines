@@ -86,31 +86,36 @@ with DAG(
                 run_state = run_obj.state
 
             for task in task_list:
+                task_id = task.task_id
                 update_dict = {
                     "Task Name": task.task_display_name,
-                    "Task ID": task.task_id,
+                    "Task ID": task_id,
                     "DAG Tags": dag_tags,
                     "DAG ID": dag_id,
                     "Task Status": task.state,
                     "Run Status": run_state,
+                    "Task Complete ID": f"{dag_id}.{task_id}",
                 }
                 task_df = pd.DataFrame([update_dict])
                 progress_df = pd.concat([progress_df, task_df])
 
         progress_df = progress_df.sort_values(by=["DAG ID", "Task ID"])
-        all_tasks = progress_df["Task Name"].unique()
+        all_tasks = progress_df["Task Complete ID"].unique()
         all_dag_tags = progress_df["DAG Tags"].explode().unique()
         summary_dict = defaultdict(lambda: dict())
 
-        for task_name in all_tasks:
-            relevant_df = progress_df[progress_df["Task Name"] == task_name]
+        for task_complete_id in all_tasks:
+            relevant_df = progress_df[
+                progress_df["Task Complete ID"] == task_complete_id
+            ]
             task_success_ratio = len(
                 relevant_df[relevant_df["Task Status"] == State.SUCCESS]
             ) / len(relevant_df)
             sucess_percentage = round(task_success_ratio * 100, 3)
             dag_tag_list = relevant_df["DAG Tags"].explode().unique()
             for dag_tag in dag_tag_list:
-                summary_dict[dag_tag][task_name] = sucess_percentage
+                for task_name in relevant_df["Task Name"].unique():
+                    summary_dict[dag_tag][task_name] = sucess_percentage
 
         for dag_tag in all_dag_tags:
             relevant_df = progress_df[
