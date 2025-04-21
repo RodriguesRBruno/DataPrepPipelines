@@ -8,3 +8,4 @@ data/
 .env*
 !.env.example
 report_summary.yaml
+workflow.yaml

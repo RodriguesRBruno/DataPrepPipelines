@@ -4,6 +4,8 @@ from dag_utils import HOST_DATA_DIR, HOST_INPUT_DATA_DIR, HOST_WORKSPACE_DIR
 from docker.types import Mount
 from airflow.providers.docker.operators.docker import DockerOperator
 from airflow.models import BaseOperator
+from airflow.decorators import task
+from airflow.exceptions import AirflowException
 
 
 def operator_factory(type, **kwargs) -> OperatorBuilder:
@@ -11,10 +13,15 @@ def operator_factory(type, **kwargs) -> OperatorBuilder:
     kwargs["operator_id"] = kwargs.pop("id", None)
     kwargs["next_id"] = kwargs.pop("next", None)
 
-    print(kwargs)
     if type == "container":
         # TODO different check (env config?) for docker vs singularity, for now just docker:
         return DockerOperatorBuilder(**kwargs)
+
+    elif type == "manual_approval":
+        return ManualApprovalBuilder(**kwargs)
+
+    else:
+        raise TypeError(f"Tasks of type {type} are not supported!")
 
 
 class OperatorBuilder(ABC):
@@ -32,7 +39,8 @@ class OperatorBuilder(ABC):
             self._airflow_operator = self._get_airflow_operator()
         return self._airflow_operator
 
-    def make_display_name(self) -> str:
+    @property
+    def display_name(self) -> str:
         return self.operator_id.replace("_", " ").title()
 
     @abstractmethod
@@ -87,5 +95,16 @@ class DockerOperatorBuilder(ContainerOperatorBuilder):
             command=self.command,
             mounts=self.mounts,
             task_id=self.operator_id,
-            task_display_name=self.make_display_name(),
+            task_display_name=self.display_name,
         )
+
+
+class ManualApprovalBuilder(OperatorBuilder):
+    def _get_airflow_operator(self):
+
+        @task(task_id=self.operator_id, task_display_name=self.display_name)
+        def auto_fail():
+            raise AirflowException("This task must be approved manually!")
+
+        task_instance = auto_fail()
+        return task_instance

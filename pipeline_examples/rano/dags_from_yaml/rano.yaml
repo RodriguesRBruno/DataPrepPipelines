@@ -1,0 +1,79 @@
+steps: &BASE_STEP
+  - id: setup
+    type: container
+    image: local/rano-data-prep-mlcube-dev:1.0.14
+    mounts:  
+      - WORKSPACE_DIR:/workspace
+      - INPUT_DATA_DIR:/workspace/input_data
+      - DATA_DIR:/data
+    command: initial_setup
+    next: make_csv
+    on_error: do_something
+
+  - <<: *BASE_STEP
+    id: make_csv
+    command: make_csv --subject-subdir AAAC_2/2001.01.01
+    next: nifti_conversion
+    on_error: do_something
+  
+  - <<: *BASE_STEP
+    id: nifti_conversion
+    command: convert_nifti --subject-subdir AAAC_2/2001.01.01
+    next: brain_extraction
+    on_error: do_something
+  
+  - <<: *BASE_STEP
+    id: brain_extraction
+    command: extract_brain --subject-subdir AAAC_2/2001.01.01
+    next: tumor_extraction
+    on_error: do_something
+  
+  - <<: *BASE_STEP
+    id: tumor_extraction
+    command: extract_tumor --subject-subdir AAAC_2/2001.01.01
+    next: prepare_for_manual_review
+    on_error: do_something
+  
+  - <<: *BASE_STEP
+    id: prepare_for_manual_review
+    command: prepare_for_manual_review --subject-subdir AAAC_2/2001.01.01
+    next: tumor_review
+    on_error: do_something
+
+  - id: tumor_review
+    type: manual_approval
+    next: segmentation_comparison
+ 
+  - <<: *BASE_STEP
+    id: segmentation_comparison
+    command: segmentation_comparison --subject-subdir AAAC_2/2001.01.01
+    next: calculate_changed_voxels
+
+  - <<: *BASE_STEP
+    id: calculate_changed_voxels
+    command: calculate_changed_voxels
+    next: manual_review
+
+  - id: manual_review
+    type: manual_approval
+    next: move_labeled_files
+
+  - <<: *BASE_STEP
+    id: move_labeled_files
+    command: move_labeled_files
+    next: consolidation_stage
+
+  - <<: *BASE_STEP
+    id: consolidation_stage
+    command: consolidation_stage
+    next: sanity_check
+
+  - <<: *BASE_STEP
+    id: sanity_check
+    command: sanity_check
+    next: metrics
+
+  - <<: *BASE_STEP
+    id: metrics
+    command: metrics
+    next: null
