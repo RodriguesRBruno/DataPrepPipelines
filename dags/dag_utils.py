@@ -64,15 +64,23 @@ def read_yaml_steps():
     return yaml_dag_info["steps"]
 
 
+def get_per_subject_from_step(step: dict[str, str] | None = None):
+    if step is None:
+        return None
+    else:
+        return step.get("per_subject", False)
+
+
 def map_operators_from_yaml(steps_from_yaml) -> list[DagBuilder]:
     # return {step["id"]: operator_factory(**step) for step in steps_from_yaml}
     subject_subdirectories = read_subject_directories()
     dags_list = []
     steps_for_dag: list[OperatorBuilder] = []
-    previous_per_subject = None
     previous_outlets = []
-    for step in steps_from_yaml:
-        per_subject = step.get("per_subject", False)
+    steps_from_yaml = [None, *steps_from_yaml, None]
+    for previous_step, current_step in zip(steps_from_yaml[:-1], steps_from_yaml[1:]):
+        previous_per_subject = get_per_subject_from_step(previous_step)
+        per_subject = get_per_subject_from_step(current_step)
 
         if per_subject != previous_per_subject and steps_for_dag:
             if previous_per_subject:
@@ -95,7 +103,6 @@ def map_operators_from_yaml(steps_from_yaml) -> list[DagBuilder]:
                         this_dag_task_list.append(new_dag_task)
 
                     this_dag = DagBuilder(
-                        dag_id_prefix=final_task.operator_id,
                         dag_id_suffix=subject_slash_timepoint,
                         operator_builders=this_dag_task_list,
                         inlets=previous_outlets.copy(),
@@ -109,7 +116,6 @@ def map_operators_from_yaml(steps_from_yaml) -> list[DagBuilder]:
                 outlets = [Dataset(f"ds_{final_task.operator_id}")]
                 final_task.add_outlets(outlets)
                 this_dag = DagBuilder(
-                    dag_id_prefix=final_task.operator_id,
                     operator_builders=steps_for_dag,
                     inlets=previous_outlets.copy(),
                 )
@@ -117,18 +123,11 @@ def map_operators_from_yaml(steps_from_yaml) -> list[DagBuilder]:
                 dags_list.append(this_dag)
             steps_for_dag = []
 
-        this_operator = operator_factory(**step)
-        steps_for_dag.append(this_operator)
-        previous_per_subject = per_subject
+        if current_step:
+            this_operator = operator_factory(**current_step)
+            steps_for_dag.append(this_operator)
+            previous_per_subject = per_subject
 
-    # TODO this assumes the final dag is never a per_subject dag, improve logic
-    final_task = steps_for_dag[-1]
-    this_dag = DagBuilder(
-        dag_id_prefix=final_task.operator_id,
-        operator_builders=steps_for_dag,
-        inlets=previous_outlets.copy(),
-    )
-    dags_list.append(this_dag)
     return dags_list
 
 
