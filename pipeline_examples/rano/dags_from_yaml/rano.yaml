@@ -9,45 +9,53 @@ steps: &BASE_STEP
     command: initial_setup
     next: make_csv
     on_error: do_something
-
+    per_subject: false
+    
   - <<: *BASE_STEP
     id: make_csv
-    command: make_csv --subject-subdir AAAC_2/2001.01.01
+    command: make_csv
     next: nifti_conversion
     on_error: do_something
+    per_subject: true
   
   - <<: *BASE_STEP
     id: nifti_conversion
-    command: convert_nifti --subject-subdir AAAC_2/2001.01.01
+    command: convert_nifti
     next: brain_extraction
     on_error: do_something
+    per_subject: true
   
   - <<: *BASE_STEP
     id: brain_extraction
-    command: extract_brain --subject-subdir AAAC_2/2001.01.01
+    command: extract_brain 
     next: tumor_extraction
     on_error: do_something
-  
+    per_subject: true
+
   - <<: *BASE_STEP
     id: tumor_extraction
-    command: extract_tumor --subject-subdir AAAC_2/2001.01.01
+    command: extract_tumor
     next: prepare_for_manual_review
     on_error: do_something
+    per_subject: true
   
   - <<: *BASE_STEP
     id: prepare_for_manual_review
-    command: prepare_for_manual_review --subject-subdir AAAC_2/2001.01.01
+    command: prepare_for_manual_review
     next: tumor_review
     on_error: do_something
+    per_subject: true
 
   - id: tumor_review
     type: manual_approval
     next: segmentation_comparison
+    per_subject: true
  
   - <<: *BASE_STEP
     id: segmentation_comparison
-    command: segmentation_comparison --subject-subdir AAAC_2/2001.01.01
+    command: segmentation_comparison
     next: calculate_changed_voxels
+    per_subject: true
 
   - <<: *BASE_STEP
     id: calculate_changed_voxels

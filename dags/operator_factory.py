@@ -1,11 +1,13 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
-from dag_utils import HOST_DATA_DIR, HOST_INPUT_DATA_DIR, HOST_WORKSPACE_DIR
+from constants import HOST_DATA_DIR, HOST_INPUT_DATA_DIR, HOST_WORKSPACE_DIR
 from docker.types import Mount
 from airflow.providers.docker.operators.docker import DockerOperator
 from airflow.models import BaseOperator
 from airflow.decorators import task
 from airflow.exceptions import AirflowException
+from airflow.datasets import Dataset
+from copy import deepcopy
 
 
 def operator_factory(type, **kwargs) -> OperatorBuilder:
@@ -26,26 +28,39 @@ def operator_factory(type, **kwargs) -> OperatorBuilder:
 
 class OperatorBuilder(ABC):
 
-    def __init__(self, operator_id: str, next_id: str, on_error: str = None, **kwargs):
+    def __init__(
+        self,
+        operator_id: str,
+        next_id: str,
+        on_error: str = None,
+        outlets: list[Dataset] = None,
+        **kwargs,
+    ):
         # TODO add logic to import on_error as a callable
         # Always call this init at the end of subclass inits
         self.operator_id = operator_id
         self.next_id = next_id
-        self._airflow_operator = None
-
-    @property
-    def airflow_operator(self) -> BaseOperator:
-        if self._airflow_operator is None:
-            self._airflow_operator = self._get_airflow_operator()
-        return self._airflow_operator
+        self.outlets = outlets or []
 
     @property
     def display_name(self) -> str:
         return self.operator_id.replace("_", " ").title()
 
     @abstractmethod
-    def _get_airflow_operator(self) -> BaseOperator:
+    def get_airflow_operator(self) -> BaseOperator:
         pass
+
+    def add_outlets(self, outlet_list: list[Dataset]):
+        self.outlets.extend(outlet_list)
+        self.next_id = None  # TODO currently assume YAML file is ordered, need to improve this logic
+
+    def create_per_subject(self, subject_slash_timepoint: str) -> OperatorBuilder:
+        """
+        Returns a copy of this object with modifications necessary to run on a per-subject basis,
+        if necessary.
+        In this class, simply returns an unchanged copy. Modify in subclasses as necessary.
+        """
+        return deepcopy(self)
 
 
 class ContainerOperatorBuilder(OperatorBuilder):
@@ -76,6 +91,12 @@ class ContainerOperatorBuilder(OperatorBuilder):
     def build_mounts(self):
         pass
 
+    def create_per_subject(self, subject_slash_timepoint) -> ContainerOperatorBuilder:
+        base_copy = deepcopy(self)
+        extra_command = ["--subject-subdir", subject_slash_timepoint]
+        base_copy.command.extend(extra_command)
+        return base_copy
+
 
 class DockerOperatorBuilder(ContainerOperatorBuilder):
 
@@ -89,18 +110,20 @@ class DockerOperatorBuilder(ContainerOperatorBuilder):
             )
         return docker_mounts
 
-    def _get_airflow_operator(self) -> DockerOperator:
+    def get_airflow_operator(self) -> DockerOperator:
         return DockerOperator(
             image=self.image,
             command=self.command,
             mounts=self.mounts,
             task_id=self.operator_id,
             task_display_name=self.display_name,
+            outlets=self.outlets,
+            auto_remove="success",
         )
 
 
 class ManualApprovalBuilder(OperatorBuilder):
-    def _get_airflow_operator(self):
+    def get_airflow_operator(self):
 
         @task(task_id=self.operator_id, task_display_name=self.display_name)
         def auto_fail():

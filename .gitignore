@@ -9,3 +9,4 @@ data/
 !.env.example
 report_summary.yaml
 workflow.yaml
+.vscode
