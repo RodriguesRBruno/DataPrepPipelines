@@ -144,8 +144,8 @@ def map_operators_from_yaml(steps_from_yaml) -> list[DagBuilder]:
             previous_outlets = tmp_outlets
             steps_for_dag = []
 
-        this_operator = operator_factory(**current_step)
-        steps_for_dag.append(this_operator)
+        new_operators = operator_factory(**current_step)
+        steps_for_dag.extend(new_operators)
         previous_per_subject = per_subject
 
     final_dags_list, _ = make_dag_builder_list(
