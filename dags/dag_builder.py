@@ -1,7 +1,6 @@
 from operator_factory import OperatorBuilder
 from airflow.datasets import Dataset
 import re
-from collections import defaultdict
 
 
 class DagBuilder:
@@ -82,8 +81,7 @@ class DagBuilder:
                 operator_builder.operator_id
             )
 
-            if operator_builder.next_id is None:
-                continue
+            for next_id in operator_builder.next_ids:
 
-            next_operator = self._get_generated_operator_by_id(operator_builder.next_id)
-            current_operator >> next_operator
+                next_operator = self._get_generated_operator_by_id(next_id)
+                current_operator >> next_operator

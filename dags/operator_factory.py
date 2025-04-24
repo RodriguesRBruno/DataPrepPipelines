@@ -13,7 +13,7 @@ from copy import deepcopy
 def operator_factory(type, **kwargs) -> OperatorBuilder:
 
     kwargs["operator_id"] = kwargs.pop("id", None)
-    kwargs["next_id"] = kwargs.pop("next", None)
+    kwargs["next_ids"] = kwargs.pop("next", [])
 
     if type == "container":
         # TODO different check (env config?) for docker vs singularity, for now just docker:
@@ -22,6 +22,8 @@ def operator_factory(type, **kwargs) -> OperatorBuilder:
     elif type == "manual_approval":
         return ManualApprovalBuilder(**kwargs)
 
+    elif type == "branch":
+        return BranchOperatorBuilder(**kwargs)
     else:
         raise TypeError(f"Tasks of type {type} are not supported!")
 
@@ -31,7 +33,7 @@ class OperatorBuilder(ABC):
     def __init__(
         self,
         operator_id: str,
-        next_id: str,
+        next_ids: list[str] | str,
         on_error: str = None,
         outlets: list[Dataset] = None,
         **kwargs,
@@ -39,7 +41,13 @@ class OperatorBuilder(ABC):
         # TODO add logic to import on_error as a callable
         # Always call this init at the end of subclass inits
         self.operator_id = operator_id
-        self.next_id = next_id
+        if not next_ids:
+            self.next_ids = []
+
+        elif isinstance(next_ids, str):
+            self.next_ids = [next_ids]
+        else:
+            self.next_ids = next_ids
         self.outlets = outlets or []
 
     @property
@@ -52,7 +60,7 @@ class OperatorBuilder(ABC):
 
     def add_outlets(self, outlet_list: list[Dataset]):
         self.outlets.extend(outlet_list)
-        self.next_id = None  # TODO currently assume YAML file is ordered, need to improve this logic
+        self.next_ids = []
 
     def create_per_subject(self, subject_slash_timepoint: str) -> OperatorBuilder:
         """
@@ -131,3 +139,7 @@ class ManualApprovalBuilder(OperatorBuilder):
 
         task_instance = auto_fail()
         return task_instance
+
+
+class BranchOperatorBuilder(OperatorBuilder):
+    pass

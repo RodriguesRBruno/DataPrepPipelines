@@ -5,8 +5,12 @@ logs/
 plugins/
 __pycache__/
 data/
+<<<<<<< Updated upstream
 .env*
 !.env.example
 report_summary.yaml
 workflow.yaml
 .vscode
+=======
+dags/user/
+>>>>>>> Stashed changes

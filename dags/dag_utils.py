@@ -1,7 +1,7 @@
 import os
 import re
 import yaml
-from typing import Literal, Any
+from typing import Literal, Any, Optional
 from operator_factory import operator_factory, OperatorBuilder
 from dag_builder import DagBuilder
 from constants import (
@@ -64,69 +64,98 @@ def read_yaml_steps():
     return yaml_dag_info["steps"]
 
 
-def get_per_subject_from_step(step: dict[str, str] | None = None):
+def get_per_subject_from_step(step: Optional[dict[str, str]] = None):
     if step is None:
         return None
     else:
         return step.get("per_subject", False)
 
 
+def make_dag_builder_list(
+    previous_per_subject: bool,
+    steps_for_dag: list[OperatorBuilder],
+    subject_subdirectories: list[str],
+    inlets=list[Dataset],
+    add_outlet_to_final_task: bool = True,
+) -> tuple[list[DagBuilder], list[Dataset]]:
+    dags_list = []
+    outlets = []
+    inlets = inlets.copy()
+    if previous_per_subject:
+        tmp_outlets = []
+        for subject_slash_timepoint in subject_subdirectories:
+            this_dag_task_list = []
+            outlets = []
+            for i, dag_task in enumerate(steps_for_dag):
+                new_dag_task = dag_task.create_per_subject(subject_slash_timepoint)
+                final_task = new_dag_task
+
+                if add_outlet_to_final_task and i == len(steps_for_dag) - 1:
+                    outlets = [
+                        Dataset(
+                            f"ds_{new_dag_task.operator_id}_{subject_slash_timepoint}"
+                        )
+                    ]
+                    new_dag_task.add_outlets(outlets)
+
+                this_dag_task_list.append(final_task)
+
+            this_dag = DagBuilder(
+                dag_id_suffix=subject_slash_timepoint,
+                operator_builders=this_dag_task_list,
+                inlets=inlets,
+            )
+            tmp_outlets.extend(outlets)
+            dags_list.append(this_dag)
+        outlets = tmp_outlets
+
+    else:
+        final_task = steps_for_dag[-1]
+        if add_outlet_to_final_task:
+            outlets = [Dataset(f"ds_{final_task.operator_id}")]
+            final_task.add_outlets(outlets)
+        this_dag = DagBuilder(operator_builders=steps_for_dag, inlets=inlets)
+        dags_list.append(this_dag)
+
+    return dags_list, outlets
+
+
 def map_operators_from_yaml(steps_from_yaml) -> list[DagBuilder]:
-    # return {step["id"]: operator_factory(**step) for step in steps_from_yaml}
     subject_subdirectories = read_subject_directories()
     dags_list = []
     steps_for_dag: list[OperatorBuilder] = []
     previous_outlets = []
-    steps_from_yaml = [None, *steps_from_yaml, None]
+    steps_from_yaml = [None, *steps_from_yaml]
     for previous_step, current_step in zip(steps_from_yaml[:-1], steps_from_yaml[1:]):
         previous_per_subject = get_per_subject_from_step(previous_step)
         per_subject = get_per_subject_from_step(current_step)
 
-        if per_subject != previous_per_subject and steps_for_dag:
-            if previous_per_subject:
-                tmp_outlets = []
-                for subject_slash_timepoint in subject_subdirectories:
-                    this_dag_task_list = []
-                    outlets = []
-                    for i, dag_task in enumerate(steps_for_dag):
-                        new_dag_task = dag_task.create_per_subject(
-                            subject_slash_timepoint
-                        )
-                        if i == len(steps_for_dag) - 1:
-                            outlets = [
-                                Dataset(
-                                    f"ds_{new_dag_task.operator_id}_{subject_slash_timepoint}"
-                                )
-                            ]
-                            new_dag_task.add_outlets(outlets)
-                            final_task = new_dag_task
-                        this_dag_task_list.append(new_dag_task)
+        changed_per_subject = per_subject != previous_per_subject
 
-                    this_dag = DagBuilder(
-                        dag_id_suffix=subject_slash_timepoint,
-                        operator_builders=this_dag_task_list,
-                        inlets=previous_outlets.copy(),
-                    )
-                    tmp_outlets.extend(outlets)
-                    dags_list.append(this_dag)
-                previous_outlets = tmp_outlets
-
-            else:
-                final_task = steps_for_dag[-1]
-                outlets = [Dataset(f"ds_{final_task.operator_id}")]
-                final_task.add_outlets(outlets)
-                this_dag = DagBuilder(
-                    operator_builders=steps_for_dag,
-                    inlets=previous_outlets.copy(),
-                )
-                previous_outlets = outlets
-                dags_list.append(this_dag)
+        if changed_per_subject and steps_for_dag:
+            tmp_dags_list, tmp_outlets = make_dag_builder_list(
+                previous_per_subject=previous_per_subject,
+                steps_for_dag=steps_for_dag,
+                subject_subdirectories=subject_subdirectories,
+                inlets=previous_outlets,
+                add_outlet_to_final_task=True,
+            )
+            dags_list.extend(tmp_dags_list)
+            previous_outlets = tmp_outlets
             steps_for_dag = []
 
-        if current_step:
-            this_operator = operator_factory(**current_step)
-            steps_for_dag.append(this_operator)
-            previous_per_subject = per_subject
+        this_operator = operator_factory(**current_step)
+        steps_for_dag.append(this_operator)
+        previous_per_subject = per_subject
+
+    final_dags_list, _ = make_dag_builder_list(
+        previous_per_subject=previous_per_subject,
+        steps_for_dag=steps_for_dag,
+        subject_subdirectories=subject_subdirectories,
+        inlets=previous_outlets,
+        add_outlet_to_final_task=False,
+    )
+    dags_list.extend(final_dags_list)
 
     return dags_list
 
