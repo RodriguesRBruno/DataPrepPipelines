@@ -9,6 +9,8 @@ from airflow.exceptions import AirflowException
 from airflow.datasets import Dataset
 from copy import deepcopy
 from airflow.sensors.base import PokeReturnValue
+from airflow.operators.empty import EmptyOperator
+from airflow.models.taskinstance import TaskInstance
 from constants import (
     HOST_DATA_DIR,
     HOST_WORKSPACE_DIR,
@@ -48,18 +50,23 @@ def operator_factory(type, **kwargs) -> list[OperatorBuilder]:
             default_condition=default_condition,
             operator_id=sensor_id,
             previous_task_id=kwargs["operator_id"],
-            next_ids=[
-                "segmentation_comparison"
-            ],  # TODO change to branching_id. Hardcoded only for first test.
+            next_ids=[branching_id],
         )
-        # branch_operator = BranchOperatorBuilder(
-        #     conditions=branching_info,
-        #     wait_time=wait_time,
-        #     default_condition=default_condition,
-        #     operator_id=branching_id,
-        # )
-        # return_list.extend([sensor_operator, branch_operator])
-        return_list.extend([sensor_operator])
+        branch_operator = BranchFromSensorOperatorBuilder(
+            previous_sensor=sensor_operator,
+            operator_id=branching_id,
+        )
+        return_list.extend([sensor_operator, branch_operator])
+
+        # TODO implement elegant solution for the tasks after branching
+        # now implementing only emptyoperators to test branching itself
+        # Later deal with going to previous stages, etc
+        if "brain_extraction" in branch_operator.next_ids:
+            branch_operator.next_ids.remove("brain_extraction")
+            dummy_id = "brain_extraction_DUMMY"
+            branch_operator.next_ids.append(dummy_id)
+            dummy_operator = EmptyOperatorBuilder(operator_id=dummy_id, next_ids=[])
+            return_list.append(dummy_operator)
     else:
         kwargs["next_ids"] = id_info
 
@@ -167,6 +174,12 @@ class DockerOperatorBuilder(ContainerOperatorBuilder):
         return docker_mounts
 
     def get_airflow_operator(self) -> DockerOperator:
+        return EmptyOperator(
+            task_id=self.operator_id,
+            task_display_name=self.display_name,
+            outlets=self.outlets,
+        )
+
         return DockerOperator(
             image=self.image,
             command=self.command,
@@ -327,26 +340,37 @@ class PythonSensorBuilder(OperatorBuilder):
         return wait_for_conditions()
 
 
-class BranchOperatorBuilder(OperatorBuilder):
+class BranchFromSensorOperatorBuilder(OperatorBuilder):
 
     def __init__(
         self,
-        conditions: dict[str, str],
-        wait_time: float,
-        default_condition: str = None,
+        previous_sensor: PythonSensorBuilder,
         **kwargs,
     ):
-        self.conditions = conditions
-        self.wait_time = wait_time
-        self.default_condition = default_condition
-        next_ids = [condition["target"] for condition in self.conditions]
-        if self.default_condition is not None:
-            next_ids.append(default_condition)
+
+        next_ids = [condition["target"] for condition in previous_sensor.conditions]
+        if previous_sensor.default_condition is not None:
+            next_ids.append(previous_sensor.default_condition)
+
+        self.sensor_task_id = previous_sensor.operator_id
         super().__init__(next_ids=next_ids, **kwargs)
 
     def get_airflow_operator(self):
-        from airflow.operators.empty import EmptyOperator
 
+        @task.branch(task_id=self.operator_id, task_display_name=self.display_name)
+        def branching(task_instance: TaskInstance):
+            """Read next task from the Sensor XCom (which detected any of the branching conditions)
+            and branch into that"""
+            print(f"{self.next_ids=}")
+            xcom_data = task_instance.xcom_pull(task_ids=self.sensor_task_id)
+            return [xcom_data]
+
+        return branching()
+
+
+class EmptyOperatorBuilder(OperatorBuilder):
+
+    def get_airflow_operator(self):
         return EmptyOperator(
             task_id=self.operator_id, task_display_name=self.display_name
         )
