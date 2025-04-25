@@ -10,4 +10,4 @@ dag_builders_list = map_operators_from_yaml(steps_from_yaml)
 # DAGs must be declared as top level code to be loaded by airflow,
 # so the "with DAG(...) as dag" block MUST be top-level
 for dag_builder in dag_builders_list:
-    dag_builder.build_task_dependencies()
+    dag_builder.build_dag()

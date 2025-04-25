@@ -42,7 +42,7 @@ def operator_factory(type, **kwargs) -> list[OperatorBuilder]:
         processed_conditions = []
         for condition in conditions:
             processed_condition = {
-                "condititon": condition["condition"],
+                "condition": condition["condition"],
                 "target": f"empty_before_{condition['target']}",
             }
             processed_conditions.append(processed_condition)

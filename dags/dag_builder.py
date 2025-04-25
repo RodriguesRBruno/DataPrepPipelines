@@ -5,8 +5,14 @@ import re
 from airflow.models import DAG
 from constants import YESTERDAY
 from airflow.models import DagBag
+from collections import deque
+from dataclasses import dataclass
 
-pipeline_dag_bag = DagBag()
+
+@dataclass
+class TaskToModify:
+    task_builder: OperatorBuilder
+    next_ids_to_modify: list[str]
 
 
 class DagBuilder:
@@ -32,6 +38,7 @@ class DagBuilder:
             operator_builder.operator_id: operator_builder
             for operator_builder in self.operator_builders
         }
+        self._sub_builders: list[DagBuilder] = self._set_sub_builders()
 
     @property
     def id_prefix(self):
@@ -81,7 +88,63 @@ class DagBuilder:
 
         return self._generated_operators[operator_id]
 
-    def make_dag(self) -> DAG:
+    def _set_sub_builders(self):
+        # find tasks that start the dag (not next_id of anything)
+        # check for cycles
+        # if found, deal with them
+        sub_builders = []
+        all_next_ids = set()
+        for operator_builder in self.operator_builders:
+            all_next_ids.update(operator_builder.next_ids)
+
+        starting_task_ids = [
+            task_id
+            for task_id in self._operator_id_to_builder_obj.keys()
+            if task_id not in all_next_ids
+        ]
+
+        for starting_task_id in starting_task_ids:
+            tasks_to_modify: list[TaskToModify] = []
+            ids_to_check = deque()
+            ids_to_check.append(starting_task_id)
+            tasks_in_this_cycle = []
+            while ids_to_check:
+                task_id = ids_to_check.pop()
+                tasks_in_this_cycle.append(task_id)
+                task_builder = self._operator_id_to_builder_obj[task_id]
+                next_ids_to_modify = []
+                for next_id in task_builder.next_ids:
+                    if next_id in tasks_in_this_cycle:
+                        next_ids_to_modify.append(next_id)
+                        continue
+                    ids_to_check.append(next_id)
+                if next_ids_to_modify:
+                    task_to_modify = TaskToModify(
+                        task_builder=task_builder, next_ids_to_modify=next_ids_to_modify
+                    )
+                    tasks_to_modify.append(task_to_modify)
+
+            if tasks_to_modify:
+                for task_to_modify in tasks_to_modify:
+                    # TODO for now assumes we can return to the start of the DAG
+                    # Later generalize to arbitrary cycles (ie in the middle of the DAG) which will require further splits
+                    for next_id in task_to_modify.next_ids_to_modify:
+                        task_to_modify.task_builder.remove_next_id(next_id)
+
+                    task_to_modify.task_builder.add_outlets(self.inlets)
+
+                builder_objs = [
+                    self._operator_id_to_builder_obj[operator_id]
+                    for operator_id in tasks_in_this_cycle
+                ]
+                sub_builder = self.__class__(
+                    operator_builders=builder_objs,
+                    dag_id_suffix=self.dag_id_suffix,
+                    inlets=self.inlets,
+                )
+                sub_builders.append(sub_builder)
+
+    def build_task_dependices(self) -> DAG:
         if self.inlets:
             schedule = self.inlets
         else:
@@ -96,7 +159,7 @@ class DagBuilder:
             is_paused_upon_creation=False,
             # doc_md=self.dag_doc,
             tags=self.tags,
-            auto_register=False,
+            auto_register=True,
         ) as dag:
             for operator_builder in self.operator_builders:
                 current_operator = self._get_generated_operator_by_id(
@@ -110,11 +173,15 @@ class DagBuilder:
 
         return dag
 
-    def build_task_dependencies(self):
-        dag = self.make_dag()
+    def build_dag(self):
+        if self._sub_builders:
+            for sub_builder in self._sub_builders:
+                sub_builder.build_dag()
+                return
+
+        pipeline_dag_bag = DagBag(include_examples=False, read_dags_from_db=True)
+        dag = self.build_task_dependices()
         pipeline_dag_bag.bag_dag(dag=dag, root_dag=dag)
 
         # LOGIC TO SPLIT INTO MULTIPLE DAGS HERE
         pipeline_dag_bag.sync_to_db()
-
-    # def split_into_multiple_dags(faulty_task_id_list: list[str]) -> list[DagBuilder]:
