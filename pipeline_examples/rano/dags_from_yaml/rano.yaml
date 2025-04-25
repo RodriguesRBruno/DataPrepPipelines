@@ -42,13 +42,15 @@ steps: &BASE_STEP
   - <<: *BASE_STEP
     id: prepare_for_manual_review
     command: prepare_for_manual_review
-    next: tumor_review
+    next: 
+      if:
+        - condition: annotation_done
+          target: segmentation_comparison
+        - condition: brain_mask_changed
+          target: brain_extraction
+      else: prepare_for_manual_review
+      wait: 60
     on_error: do_something
-    per_subject: true
-
-  - id: tumor_review
-    type: manual_approval
-    next: segmentation_comparison
     per_subject: true
  
   - <<: *BASE_STEP
