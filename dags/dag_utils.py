@@ -2,7 +2,8 @@ import os
 import re
 import yaml
 from typing import Literal, Any, Optional
-from operator_factory import operator_factory, OperatorBuilder
+from operator_builders.operator_builder import OperatorBuilder
+from operator_factory import operator_factory
 from dag_builder import DagBuilder
 from constants import (
     AIRFLOW_INPUT_DATA_DIR,

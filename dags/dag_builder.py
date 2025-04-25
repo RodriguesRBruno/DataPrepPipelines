@@ -1,4 +1,4 @@
-from operator_factory import OperatorBuilder
+from operator_builders.operator_builder import OperatorBuilder
 from airflow.datasets import Dataset
 import re
 
