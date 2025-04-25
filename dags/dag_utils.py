@@ -180,6 +180,9 @@ def read_subject_directories():
     for subject_id_dir in os.listdir(AIRFLOW_INPUT_DATA_DIR):
         subject_complete_dir = os.path.join(AIRFLOW_INPUT_DATA_DIR, subject_id_dir)
 
+        if not os.path.isdir(subject_complete_dir):
+            continue
+
         for timepoint_dir in os.listdir(subject_complete_dir):
             subject_slash_timepoint_list.append(
                 os.path.join(subject_id_dir, timepoint_dir)
