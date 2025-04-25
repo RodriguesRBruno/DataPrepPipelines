@@ -46,3 +46,6 @@ class OperatorBuilder(ABC):
         In this class, simply returns an unchanged copy. Modify in subclasses as necessary.
         """
         return deepcopy(self)
+
+    def remove_next_id(self, next_id):
+        self.next_ids.remove(next_id)

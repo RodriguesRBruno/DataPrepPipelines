@@ -1,6 +1,6 @@
 from .python_sensor_builder import PythonSensorBuilder
 from .operator_builder import OperatorBuilder
-
+from .empty_operator_builder import EmptyOperatorBuilder
 from airflow.decorators import task
 from airflow.models.taskinstance import TaskInstance
 
@@ -13,12 +13,8 @@ class BranchFromSensorOperatorBuilder(OperatorBuilder):
         **kwargs,
     ):
 
-        next_ids = [condition["target"] for condition in previous_sensor.conditions]
-        if previous_sensor.default_condition is not None:
-            next_ids.append(previous_sensor.default_condition)
-
         self.sensor_task_id = previous_sensor.operator_id
-        super().__init__(next_ids=next_ids, **kwargs)
+        super().__init__(**kwargs)
 
     def get_airflow_operator(self):
 

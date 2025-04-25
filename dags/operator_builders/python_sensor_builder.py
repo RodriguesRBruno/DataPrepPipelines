@@ -4,7 +4,7 @@ from airflow.decorators import task
 from airflow.sensors.base import PokeReturnValue
 from copy import deepcopy
 from pipeline_state import PipelineState
-
+from constants import ALWAYS_CONDITION
 
 import os
 
@@ -74,7 +74,9 @@ def evaluate_external_condition(condition_name: str, pipeline_state: PipelineSta
     # TODO implement properly! Should call the external python files and define a
     # pipeline object from airflow_kwargs that is sent to the Python callable.
     # For this first proof of concept, hardcode functions just to validate functionality.
-    if condition_name == "annotation_done":
+    if condition_name == ALWAYS_CONDITION:
+        return True
+    elif condition_name == "annotation_done":
         return mock_annotation_done(pipeline_state)
     elif condition_name == "brain_mask_changed":
         return mock_brain_mask_changed(pipeline_state)
@@ -85,17 +87,12 @@ class PythonSensorBuilder(OperatorBuilder):
 
     def __init__(
         self,
-        conditions: dict[str, str],
+        conditions: list[dict[str, str]],
         wait_time: float = 60,
-        default_condition: str = None,
-        previous_task_id: str = None,
         **kwargs,
     ):
         super().__init__(**kwargs)
         self.conditions = conditions
-        if default_condition == previous_task_id:
-            default_condition = None
-        self.default_condition = default_condition
         self.wait_time = wait_time
         self.running_subject = None
 
@@ -127,9 +124,6 @@ class PythonSensorBuilder(OperatorBuilder):
                 target_id = condition["target"]
                 if evaluate_external_condition(condition_name, pipeline_state):
                     return PokeReturnValue(is_done=True, xcom_value=target_id)
-
-            if self.default_condition is not None:
-                return PokeReturnValue(is_done=True, xcom_value=self.default_condition)
 
             return False
 
