@@ -79,6 +79,9 @@ def operator_factory(type, **kwargs) -> list[OperatorBuilder]:
     elif type == "manual_approval":
         return_list.append(ManualApprovalBuilder(**kwargs))
 
+    elif type == "dummy":
+        return_list.append(EmptyOperatorBuilder(**kwargs))
+
     else:
         raise TypeError(f"Tasks of type {type} are not supported!")
 
