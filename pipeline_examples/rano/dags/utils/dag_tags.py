@@ -1,6 +1,0 @@
-ALL_SUBJECTS = "All Subjects"
-SETUP = "Setup"
-NIFTI_CONVERSION = "NIfTI Conversion"
-TUMOR_EXTRACTION = "Tumor Extraction"
-MANUAL_APPROVAL = "Manual Approval"
-FINISH = "Finish"
