@@ -45,15 +45,6 @@ def operator_factory(type, **kwargs) -> list[OperatorBuilder]:
         )
         return_list.extend([sensor_operator, branch_operator])
 
-        # TODO implement elegant solution for the tasks after branching
-        # now implementing only emptyoperators to test branching itself
-        # Later deal with going to previous stages, etc
-        if "brain_extraction" in branch_operator.next_ids:
-            branch_operator.next_ids.remove("brain_extraction")
-            dummy_id = "brain_extraction_DUMMY"
-            branch_operator.next_ids.append(dummy_id)
-            dummy_operator = EmptyOperatorBuilder(operator_id=dummy_id, next_ids=[])
-            return_list.append(dummy_operator)
     else:
         kwargs["next_ids"] = id_info
 
