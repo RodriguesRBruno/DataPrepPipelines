@@ -104,7 +104,7 @@ class DagBuilder:
         ]
 
         for starting_task_id in starting_task_ids:
-            tasks_to_modify: list[TaskToModify] = []
+            task_to_modify = None
             ids_to_check = deque()
             ids_to_check.append(starting_task_id)
             tasks_in_this_cycle = []
@@ -122,27 +122,60 @@ class DagBuilder:
                     task_to_modify = TaskToModify(
                         task_builder=task_builder, next_ids_to_modify=next_ids_to_modify
                     )
-                    tasks_to_modify.append(task_to_modify)
 
-            if tasks_to_modify:
-                for task_to_modify in tasks_to_modify:
-                    # TODO for now assumes we can return to the start of the DAG
-                    # Later generalize to arbitrary cycles (ie in the middle of the DAG) which will require further splits
-                    for next_id in task_to_modify.next_ids_to_modify:
-                        task_to_modify.task_builder.remove_next_id(next_id)
+            if task_to_modify is not None:
 
-                    task_to_modify.task_builder.add_outlets(self.inlets)
+                # TODO for now assumes only one task that goes back (ie only one split_task_id or none), later generalize
+                split_task_id = None
+                for next_id in task_to_modify.next_ids_to_modify:
+                    if next_id in starting_task_ids:
+                        outlets = self.inlets
+                    else:
+                        split_task_id = next_id
+                        outlets = [Dataset(f"ds_before_{next_id}")]
+                    task_to_modify.task_builder.remove_next_id(next_id)
+                    task_to_modify.task_builder.add_outlets(outlets)
 
-                builder_objs = [
-                    self._operator_id_to_builder_obj[operator_id]
-                    for operator_id in tasks_in_this_cycle
-                ]
-                sub_builder = self.__class__(
-                    operator_builders=builder_objs,
-                    dag_id_suffix=self.dag_id_suffix,
-                    inlets=self.inlets,
-                )
-                sub_builders.append(sub_builder)
+                if split_task_id:
+                    split_task_index = tasks_in_this_cycle.index(split_task_id)
+                    first_part = tasks_in_this_cycle[:split_task_index]
+                    second_part = tasks_in_this_cycle[split_task_index:]
+                    first_builder_objs = [
+                        self._operator_id_to_builder_obj[operator_id]
+                        for operator_id in first_part
+                    ]
+                    second_builder_objs = [
+                        self._operator_id_to_builder_obj[operator_id]
+                        for operator_id in second_part
+                    ]
+
+                    first_builder_objs[-1].outlets = outlets
+                    first_builder_objs[-1].next_ids = []
+                    first_sub_builder = self.__class__(
+                        operator_builders=first_builder_objs,
+                        dag_id_suffix=self.dag_id_suffix,
+                        inlets=self.inlets,
+                    )
+
+                    second_sub_builder = self.__class__(
+                        operator_builders=second_builder_objs,
+                        dag_id_suffix=self.dag_id_suffix,
+                        inlets=outlets,  # outlets from the first builder
+                    )
+
+                    sub_builders.extend([first_sub_builder, second_sub_builder])
+                else:
+                    builder_objs = [
+                        self._operator_id_to_builder_obj[operator_id]
+                        for operator_id in tasks_in_this_cycle
+                    ]
+                    sub_builder = self.__class__(
+                        operator_builders=builder_objs,
+                        dag_id_suffix=self.dag_id_suffix,
+                        inlets=self.inlets,
+                    )
+                    sub_builders.append(sub_builder)
+        return sub_builders
 
     def build_task_dependices(self) -> DAG:
         if self.inlets:
@@ -173,12 +206,9 @@ class DagBuilder:
         return dag
 
     def build_dag(self) -> list[DAG]:
-        dag_list = []
         if self._sub_builders:
-
-            for sub_builder in self._sub_builders:
-                dag_list.extend(sub_builder.build_dag())
-                return
+            dag_list = [sub_builder.build_dag() for sub_builder in self._sub_builders]
+            return dag_list
 
         dag = self.build_task_dependices()
         return [dag]
