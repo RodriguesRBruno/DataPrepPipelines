@@ -1,6 +1,12 @@
+from __future__ import annotations
 from operator_builders.operator_builder import OperatorBuilder
 from airflow.datasets import Dataset
 import re
+from airflow.models import DAG
+from constants import YESTERDAY
+from airflow.models import DagBag
+
+pipeline_dag_bag = DagBag()
 
 
 class DagBuilder:
@@ -75,13 +81,40 @@ class DagBuilder:
 
         return self._generated_operators[operator_id]
 
+    def make_dag(self) -> DAG:
+        if self.inlets:
+            schedule = self.inlets
+        else:
+            schedule = "@once"
+        with DAG(
+            dag_id=self.dag_id,
+            dag_display_name=self.dag_display_name,
+            catchup=False,
+            max_active_runs=1,
+            schedule=schedule,
+            start_date=YESTERDAY,
+            is_paused_upon_creation=False,
+            # doc_md=self.dag_doc,
+            tags=self.tags,
+            auto_register=False,
+        ) as dag:
+            for operator_builder in self.operator_builders:
+                current_operator = self._get_generated_operator_by_id(
+                    operator_builder.operator_id
+                )
+
+                for next_id in operator_builder.next_ids:
+
+                    next_operator = self._get_generated_operator_by_id(next_id)
+                    current_operator >> next_operator
+
+        return dag
+
     def build_task_dependencies(self):
-        for operator_builder in self.operator_builders:
-            current_operator = self._get_generated_operator_by_id(
-                operator_builder.operator_id
-            )
+        dag = self.make_dag()
+        pipeline_dag_bag.bag_dag(dag=dag, root_dag=dag)
 
-            for next_id in operator_builder.next_ids:
+        # LOGIC TO SPLIT INTO MULTIPLE DAGS HERE
+        pipeline_dag_bag.sync_to_db()
 
-                next_operator = self._get_generated_operator_by_id(next_id)
-                current_operator >> next_operator
+    # def split_into_multiple_dags(faulty_task_id_list: list[str]) -> list[DagBuilder]:
