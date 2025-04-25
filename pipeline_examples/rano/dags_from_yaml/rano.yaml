@@ -1,46 +1,51 @@
-steps: &BASE_STEP
-  - id: setup
-    type: container
+base_step: &BASE_STEP
+  - type: container
     image: local/rano-data-prep-mlcube-dev:1.0.14
     mounts:  
       - WORKSPACE_DIR:/workspace
       - INPUT_DATA_DIR:/workspace/input_data
       - DATA_DIR:/data
+
+steps:
+  - id: setup
+    <<: *BASE_STEP
     command: initial_setup
     next: make_csv
     on_error: do_something
     per_subject: false
     
-  - <<: *BASE_STEP
-    id: make_csv
+  - id: make_csv
+    <<: *BASE_STEP
     command: make_csv
     next: nifti_conversion
     on_error: do_something
     per_subject: true
   
-  - <<: *BASE_STEP
-    id: nifti_conversion
+  - id: nifti_conversion
+    <<: *BASE_STEP 
     command: convert_nifti
     next: brain_extraction
     on_error: do_something
     per_subject: true
   
-  - <<: *BASE_STEP
-    id: brain_extraction
+  - id: brain_extraction
+    <<: *BASE_STEP
     command: extract_brain 
     next: tumor_extraction
     on_error: do_something
     per_subject: true
+    limit: 2
 
-  - <<: *BASE_STEP
-    id: tumor_extraction
+  - id: tumor_extraction
+    <<: *BASE_STEP
     command: extract_tumor
     next: prepare_for_manual_review
     on_error: do_something
     per_subject: true
-  
-  - <<: *BASE_STEP
-    id: prepare_for_manual_review
+    limit: 2
+
+  - id: prepare_for_manual_review
+    <<: *BASE_STEP
     command: prepare_for_manual_review
     next: 
       if:
@@ -52,15 +57,15 @@ steps: &BASE_STEP
       wait: 60
     on_error: do_something
     per_subject: true
- 
-  - <<: *BASE_STEP
-    id: segmentation_comparison
+  
+  - id: segmentation_comparison
+    <<: *BASE_STEP
     command: segmentation_comparison
     next: calculate_changed_voxels
     per_subject: true
 
-  - <<: *BASE_STEP
-    id: calculate_changed_voxels
+  - id: calculate_changed_voxels
+    <<: *BASE_STEP
     command: calculate_changed_voxels
     next: manual_review
 
@@ -68,22 +73,24 @@ steps: &BASE_STEP
     type: manual_approval
     next: move_labeled_files
 
-  - <<: *BASE_STEP
-    id: move_labeled_files
+  
+  - id: move_labeled_files
+    <<: *BASE_STEP
     command: move_labeled_files
     next: consolidation_stage
 
-  - <<: *BASE_STEP
-    id: consolidation_stage
+    
+  - id: consolidation_stage
+    <<: *BASE_STEP
     command: consolidation_stage
     next: sanity_check
 
-  - <<: *BASE_STEP
-    id: sanity_check
+  - id: sanity_check
+    <<: *BASE_STEP
     command: sanity_check
     next: metrics
 
-  - <<: *BASE_STEP
-    id: metrics
+  - id: metrics
+    <<: *BASE_STEP
     command: metrics
     next: null

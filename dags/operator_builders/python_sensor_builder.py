@@ -106,7 +106,7 @@ class PythonSensorBuilder(OperatorBuilder):
         copy_obj.running_subject = subject_slash_timepoint
         return copy_obj
 
-    def get_airflow_operator(self):
+    def _define_base_operator(self):
 
         @task.sensor(
             poke_interval=self.wait_time,

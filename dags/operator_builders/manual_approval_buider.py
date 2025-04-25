@@ -4,7 +4,7 @@ from airflow.exceptions import AirflowException
 
 
 class ManualApprovalBuilder(OperatorBuilder):
-    def get_airflow_operator(self):
+    def _define_base_operator(self):
 
         @task(task_id=self.operator_id, task_display_name=self.display_name)
         def auto_fail():

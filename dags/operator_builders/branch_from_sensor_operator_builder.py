@@ -16,7 +16,7 @@ class BranchFromSensorOperatorBuilder(OperatorBuilder):
         self.sensor_task_id = previous_sensor.operator_id
         super().__init__(**kwargs)
 
-    def get_airflow_operator(self):
+    def _define_base_operator(self):
 
         @task.branch(task_id=self.operator_id, task_display_name=self.display_name)
         def branching(task_instance: TaskInstance):
