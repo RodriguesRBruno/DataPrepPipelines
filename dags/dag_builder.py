@@ -157,7 +157,6 @@ class DagBuilder:
             schedule=schedule,
             start_date=YESTERDAY,
             is_paused_upon_creation=False,
-            # doc_md=self.dag_doc,
             tags=self.tags,
             auto_register=True,
         ) as dag:
@@ -173,15 +172,13 @@ class DagBuilder:
 
         return dag
 
-    def build_dag(self):
+    def build_dag(self) -> list[DAG]:
+        dag_list = []
         if self._sub_builders:
+
             for sub_builder in self._sub_builders:
-                sub_builder.build_dag()
+                dag_list.extend(sub_builder.build_dag())
                 return
 
-        pipeline_dag_bag = DagBag(include_examples=False, read_dags_from_db=True)
         dag = self.build_task_dependices()
-        pipeline_dag_bag.bag_dag(dag=dag, root_dag=dag)
-
-        # LOGIC TO SPLIT INTO MULTIPLE DAGS HERE
-        pipeline_dag_bag.sync_to_db()
+        return [dag]
