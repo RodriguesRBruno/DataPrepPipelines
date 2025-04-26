@@ -4,7 +4,6 @@ from airflow.datasets import Dataset
 import re
 from airflow.models import DAG
 from constants import YESTERDAY
-from airflow.models import DagBag
 from collections import deque
 from dataclasses import dataclass
 
@@ -132,7 +131,10 @@ class DagBuilder:
                         outlets = self.inlets
                     else:
                         split_task_id = next_id
-                        outlets = [Dataset(f"ds_before_{next_id}")]
+                        dataset_id = f"ds_before_{next_id}"
+                        if self.dag_id_suffix:
+                            dataset_id += f"_{self.dag_id_suffix}"
+                        outlets = [Dataset(dataset_id)]
                     task_to_modify.task_builder.remove_next_id(next_id)
                     task_to_modify.task_builder.add_outlets(outlets)
 
