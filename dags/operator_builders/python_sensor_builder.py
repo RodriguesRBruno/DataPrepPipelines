@@ -42,7 +42,14 @@ def evaluate_external_condition(condition: Condition, pipeline_state: PipelineSt
     )
     imported_module = importlib.import_module(condition_module)
     condition_function_obj = getattr(imported_module, condition_function)
-    return condition_function_obj(pipeline_state)
+    print(f"Checking condition {condition.condition_id}...")
+    condition_result = condition_function_obj(pipeline_state)
+
+    if condition_result:
+        print(f"Condition {condition.condition_id} met!")
+    else:
+        print(f"Condition {condition.condition_id} not met.")
+    return condition_result
 
 
 class PythonSensorBuilder(OperatorBuilder):
