@@ -1,6 +1,6 @@
 base_step: &BASE_STEP
   - type: container
-    image: local/rano-data-prep-mlcube-dev:1.0.14
+    image: local/rano-data-prep-mlcube:1.0.14
     mounts:  
       - ${WORKSPACE_DIR}:/workspace
       - ${INPUT_DATA_DIR}:/workspace/input_data
