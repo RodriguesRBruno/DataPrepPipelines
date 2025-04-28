@@ -73,7 +73,6 @@ with DAG(
 
         progress_df = pd.DataFrame(
             {
-                "DAG Tags": [],
                 "DAG ID": [],
                 "Task Name": [],
                 "Task ID": [],
@@ -86,10 +85,8 @@ with DAG(
                 task_list = all_dags[dag_id].tasks
                 for task in task_list:
                     task.state = State.NONE
-                run_state = State.NONE
             else:
                 task_list = run_obj.get_task_instances()
-                run_state = run_obj.state
 
             for task in task_list:
                 task_id = task.task_id
@@ -101,8 +98,6 @@ with DAG(
                     "Task ID": task_id,
                     "DAG ID": dag_id,
                     "Task Status": task.state,
-                    "Run Status": run_state,
-                    "Task Complete ID": f"{dag_id}.{task_id}",
                 }
                 task_df = pd.DataFrame([update_dict])
                 progress_df = pd.concat([progress_df, task_df])
@@ -111,13 +106,14 @@ with DAG(
             by=["Task ID"],
             key=_sort_column,
         )
-        all_tasks = progress_df["Task Complete ID"].unique()
+        all_task_ids = progress_df["Task ID"].unique()
         summary_dict = defaultdict(lambda: dict())
 
-        for task_complete_id in all_tasks:
-            relevant_df = progress_df[
-                progress_df["Task Complete ID"] == task_complete_id
-            ]
+        for task_id in all_task_ids:
+
+            relevant_df = progress_df[progress_df["Task ID"] == task_id]
+            print(f'\n{relevant_df[["Task ID", "Run Status"]]}')
+
             task_success_ratio = len(
                 relevant_df[relevant_df["Task Status"] == State.SUCCESS]
             ) / len(relevant_df)
