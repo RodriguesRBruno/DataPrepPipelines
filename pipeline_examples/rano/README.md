@@ -18,7 +18,13 @@ Real data for running the pipeline is not available in this repository. However,
 ### 1.1 Structuring your data
 
 #### 1.1.1 Workspace Directory
-If using real data, prepare a `workspace` directory in your Machine. It can be plcaed under any directory you prefer. Keep note of the complete path to this directory for the configuration step in [Section 2](#2-configuring-the-env-file-for-the-rano-pipeline).
+If using real data, prepare a `workspace` directory in your Machine. This directory must have the contents of the `workspace` directory located at the same level as this README.md file, that is, it must include the `parameters.yaml` file. The workspace directory can be placed under any directory you prefer. Keep note of the complete path to this directory for the configuration step in [Section 2](#2-configuring-the-env-file-for-the-rano-pipeline).
+
+```
+.
+├── workspace
+│   └── parameters.yaml
+```
 
 #### 1.1.2 Output Data
 Prepare a directory in your Machine to be the directory of the output data. This directory can be placed anywhere and have any name, but we recommend using a directory named `data` inside the `workspace` directory defined above. In this case, the directory structure would be:
@@ -27,6 +33,7 @@ Prepare a directory in your Machine to be the directory of the output data. This
 .
 ├── workspace
 │   ├── data
+│   └── parameters.yaml
 ```
 Keep note of the complete path to this directory for the configuration step in [Section 2](#2-configuring-the-env-file-for-the-rano-pipeline).
 
@@ -36,24 +43,25 @@ ou may create your `input_data` directory anywhere, but please ensure that it is
 **Please note**: For the RANO study, Series-level folders must use the following abbreviations: t2f (T2-weighted FLAIR), t1n (T1-weighted non-contrast), t1c (T1-weighted with contrast), and t2w (T2-weighted). For more information about the required series, please refer to the FeTS 2.0 manual. PatientID and Timepoint must be unique between and within patients, respectively, and Timepoint should be sortable into chronologic order.
 
 ```
+.
 ├── workspace
-   ├── data
-   ├── input_data
-   ├── AAAC_0
-   │   ├── 2008.03.30
-   │   │   ├── t2f
-   │   │   │   ├── t2_Flair_axial-2_echo1_S0002_I000001.dcm
-   │   │   │   └── ...
-   │   │   ├── t1n
-   │   │   │   ├── t1_axial-3_echo1_S0003_I000001.dcm
-   │   │   │   └── ...
-   │   │   ├── t1c
-   │   │   │   ├── t1_axial_stealth-post-14_echo1_S0014_I000001.dcm
-   │   │   │   └── ...
-   │   │   └── t2w
-   │   │   │   ├── T2_SAG_SPACE-4_echo1_S0004_I000001.dcm
-   │   │   │   └── ...
-
+│  ├── data
+│  ├── input_data
+│  │   ├── AAAC_0
+│  │   │   ├── 2008.03.30
+│  │   │   │   ├── t2f
+│  │   │   │   │   ├── t2_Flair_axial-2_echo1_S0002_I000001.dcm
+│  │   │   │   │   └── ...
+│  │   │   │   ├── t1n
+│  │   │   │   │   ├── t1_axial-3_echo1_S0003_I000001.dcm
+│  │   │   │   │   └── ...
+│  │   │   │   ├── t1c
+│  │   │   │   │   ├── t1_axial_stealth-post-14_echo1_S0014_I000001.dcm
+│  │   │   │   │   └── ...
+│  │   │   │   └── t2w
+│  │   │   │       ├── T2_SAG_SPACE-4_echo1_S0004_I000001.dcm
+│  │   │   │       └── ...
+│  └──parameters.yaml
 ```
 
 
@@ -110,4 +118,60 @@ docker compose --env-file .env.rano -p rano up
 
 This command starts a Docker Compose project named `rano` based on the env file `.env.crano`. The Airflow image is configured so that the pipeline will start immediately after the initial Airflow start up. The Airflow Web UI can be accessed at (http://localhost:8080/), using the **_AIRFLOW_USER** and **_AIRFLOW_PASSWORD** values defined in the `.env.rano` file as the Username and Password to monitor runs.
 
-### 3.1 Monitoring in Airflow
+### 4. Pipeline Overiew
+A general view of the pipeline is shown in the Figure below. A initial setup creating required directories is performed at first. Then, the pipeline will run NIfTI Conversion for multiple subjects in parallel. For each subject, once NIfTi conversion is completed, the pipelin will automatically run the Brain Extraction and Tumor Extraction stages and then await for manual confirmation (see [Section X.X]() for instructions regarding manual confirmation). The `per subject: true` configuration present in multiple steps of the pipeline signifies that this splitting per subject must be done at these steps.
+
+![Representation of the whole pipeline](readme_images/pipeline_diagram.png)
+
+When the parser converts the YAML file into Airflow, each box in the above Figure is converted into a Directed Acyclic Graph (DAG) in Airflow. This results in the Airflow form of the pipeline being constructed as multiple DAGs, which can be though of as a grouping of one or more data processing steps. The Airflow Docker image also has a Summarizer DAG is also present which is not part of the pipeline itself but rather writes a summary of the current execution status every 30 minutes, so the Benchmark Owner can track the study’s progress.
+
+### 5. Monitoring in Airflow
+Airflow’s Web UI can be used to monitor the Pipeline while it is running. It can be accessed via port 8080 in the Machine where Airflow is running. If running locally, you can simply open http://localhost:8080/ on your Browser to access the UI. Use the `_AIRFLOW_USER` and `_AIRFLOW_PASSWORD` defined in the `.env.rano` file from [Section 2](#2-configuring-the-env-file-for-the-rano-pipeline) to log in.
+
+
+Once logged in, a list of all currently loaded Airflow DAGs will be displayed, as shown below. The pipeline itself consists of multiple DAGs. Each DAG is tagged with all the steps (from the `dags_from_yaml/rano.yaml` file) and, in case of steps with `per_subject: true`, also by the Subject ID and Timepoint.
+
+![DAG view in Airflow](readme_images/dag_list.png)
+
+#### 5.1 Manual Approval Steps
+The automatic Tumor Segmentations must be manually validated before the Pipelin concludes. Once a segmentation is ready for review, it will be available at the following path:
+
+```
+data/manual_review/tumor_extraction/{SUBJECT_ID}/{TIMEPOINT}/under_review/{SUBJECT_ID}_{TIMEPOINT}_tumorMask_model_0.nii.gz
+```
+
+Where `data` is the output data directory defined in [Section 1.1.2](#112-output-data),`{SUBJECT_ID}` and `{TIMEPOINT}` must be substituted for the corresponding SubjectID and Timepoint of each data point. Note that this is in the `under_review` directory, signalling the tumor segmentation has not been reviewed yet. For example, for subject AAAC_2 and timepoint 2001.01.01 the complete path would be:
+
+```
+data/manual_review/tumor_extraction/AAAC_2/2001.01.01/under_review/AAAC_2_2001.01.01_tumorMask_model_0.nii.gz
+````
+
+The tumor segmentation can be reviewed with the software of your choice and, if necessary, corrections can be made. Once the review is finished, the file must be moved to the adjacent `finalized` directory. The complete path to the `finalized` file is, then
+
+```
+data/manual_review/tumor_extraction/{SUBJECT_ID}/{TIMEPOINT}/finalized/{SUBJECT_ID}_{TIMEPOINT}_tumorMask_model_0.nii.gz
+```
+
+Where `data` is the output data directory defined in [Section 1.1.2](#112-output-data), `{SUBJECT_ID}` and `{TIMEPOINT}` must be substituted for the corresponding SubjectID and Timepoint of each data point. Note that this is in the `finalized` directory, signalling the review has been done. Once the Tumor Segmentation is in the `finalized` directory, the pipeline will automatically detect it and proceed for this subject. ***IMPORTANT!! Do NOT change the filename when moving the file into the finalized directory!*** The pipeline will only detect the reviewed Tumor Segmentation if it keeps the exact same filename.
+
+Please do this review process for all subjects in the study. If the brain mask itself must be corrected for any subjects, please refer to [Section 5.2](#52-brain-mask-correction). Note that modifying the Brain Mask of a Subject will cause the pipeline to rollback to the Brain Extraction step corresponding to that subject to run again, after which the given Tumor Segmentation must be manually approved once ready.
+
+#### 5.2 Brain Mask Correction
+
+If the automatic brain mask is correct, no action from this section is required. However, it is also possible to make corrections to the automatic brain mask, if necessary. Once the pipeline reaches the manual approval step for a given subject/timepoint, the brain mask file will be located at the path below:
+
+```
+data/manual_review/brain_mask/{SUBJECT_ID}/{TIMEPOINT/under_review/brainMask_fused.nii.gz
+```
+
+Where data is the output data directory defined in [Section 1.1.2](#112-output-data), `{SUBJECT_ID}` and `{TIMEPOINT}` must be substituted for the corresponding SubjectID and Timepoint of each data point. Note that this is in the `under_review` directory, signalling the tumor segmentation has not been reviewed yet. 
+
+The brain mask can be reviewed and corrected with the software of your choice and, if necessary, corrections can be made. Once the corrections are finished, the file must be moved to the adjacent `finalized` directory. The complete path to the finalized file is, then:
+
+```
+data/manual_review/brain_mask/{SUBJECT_ID}/{TIMEPOINT/finalized/brainMask_fused.nii.gz
+```
+
+***IMPORTANT!! Do NOT change the filename when moving the file into the finalized directory!*** The pipeline will only detect the corrected Brain Mask if it keeps the exact same filename.
+
+#### 5.3 Final Confirmation
