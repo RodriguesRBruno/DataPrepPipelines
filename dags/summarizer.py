@@ -112,7 +112,6 @@ with DAG(
         for task_id in all_task_ids:
 
             relevant_df = progress_df[progress_df["Task ID"] == task_id]
-            print(f'\n{relevant_df[["Task ID", "Run Status"]]}')
 
             task_success_ratio = len(
                 relevant_df[relevant_df["Task Status"] == State.SUCCESS]
