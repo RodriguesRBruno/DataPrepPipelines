@@ -58,7 +58,9 @@ def read_yaml_steps():
     yaml_file = yaml_dag_files[0]
     try:
         with open(yaml_file, "r") as f:
-            yaml_dag_info = yaml.safe_load(f)
+            raw_content = f.read()
+            expanded_content = os.path.expandvars(raw_content)
+            yaml_dag_info = yaml.safe_load(expanded_content)
     except Exception:
         print(f"Unable to load YAML file {yaml_file}. It will be skipped.")
 

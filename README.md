@@ -57,6 +57,8 @@ docker compose --env-file .env.chexpert -p chexpert up
 
 This command starts a Docker Compose project named `chexpert` based on the env file `.env.chexpert`. The Airflow image is configured so that the pipeline will start immediately after the initial Airflow start up. The Airflow Web UI can be accessed at (http://localhost:8080/), using the **_AIRFLOW_USER** and **_AIRFLOW_PASSWORD** values defined in the `.env.chexpert` file as the Username and Password to monitor runs.
 
+During execution, the pipeline outputs a progress report to `${WORKSPACE_DIR}/report_summary.yaml`, with `WORKSPACE_DIR` defined in the `.env.chexpert` file. This progress summary displays the percentage (from 0 to 100.0) of Airflow tasks completed, for each task in the YAML file. The `report_summary.yaml` file is updated every 30 minutes the pipeline is running. For this simple pipeline, the summary should be simply 0.0 for incomplete tasks or 100 for complete tasks. The RANO Pipeline example (see the README.md located at `pipeline_examples/rano/README.md`) can display more complex situations in its report summary.
+
 Once the pipeline finishes executing, output data will be located at the **DATA_DIR**  defined in the `.env.chexpert` file.
 
 
@@ -71,7 +73,7 @@ steps:
     mounts:
       - /path/to/input_data/directory/in/host/system:/path/to/input_data/in/container
       - /some/other/mount/in/host:/some/other/mount/in/container
-      - The special strings WORKSPACE_DIR, DATA_DIR and INPUT_DATA_DIR may be used here. These will be replaced by the equivalent values from the .env configuration file at run time.
+      - The environment variables ${WORKSPACE_DIR}, ${DATA_DIR} and ${INPUT_DATA_DIR} may be used here as shorthands to the paths defined in the .env file.
     next: id of the step to execute after this, or null if this is the last step of the pipeline. Optionally, can support conditional next steps as described below.
        - if: only include this if optional next steps are desired!
          - condition: condition_id

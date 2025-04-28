@@ -9,7 +9,6 @@ class DockerOperatorBuilder(ContainerOperatorBuilder):
         docker_mounts = []
         for mount in mounts:
             host_path, docker_path = mount.rsplit(":", maxsplit=1)
-            host_path = self.replace_with_host_paths(host_path)
             docker_mounts.append(
                 Mount(source=host_path, target=docker_path, type="bind")
             )

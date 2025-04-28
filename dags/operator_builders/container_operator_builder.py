@@ -2,7 +2,6 @@ from __future__ import annotations
 from .operator_builder import OperatorBuilder
 from abc import abstractmethod
 from copy import deepcopy
-from constants import HOST_DATA_DIR, HOST_INPUT_DATA_DIR, HOST_WORKSPACE_DIR
 
 
 class ContainerOperatorBuilder(OperatorBuilder):
@@ -17,17 +16,6 @@ class ContainerOperatorBuilder(OperatorBuilder):
             self.command = command
         self.mounts = self.build_mounts(mounts)
         super().__init__(**kwargs)
-
-    def replace_with_host_paths(self, yaml_str):
-        mount_replacements = {
-            "INPUT_DATA_DIR": HOST_INPUT_DATA_DIR,
-            "DATA_DIR": HOST_DATA_DIR,
-            "WORKSPACE_DIR": HOST_WORKSPACE_DIR,
-        }
-
-        for original_value, new_value in mount_replacements.items():
-            yaml_str = yaml_str.replace(original_value, new_value)
-        return yaml_str
 
     @abstractmethod
     def build_mounts(self):
