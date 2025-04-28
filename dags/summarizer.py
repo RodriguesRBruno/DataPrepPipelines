@@ -15,12 +15,16 @@ from constants import YESTERDAY
 from datetime import timedelta
 from airflow.utils.state import State
 from collections import defaultdict
+from dag_utils import read_yaml_steps
 
+SUMMARIZER_ID = "pipeline_summarizer"
 SUMMARIZER_TAG = "Pípeline Summarizer"
 AGGREGATE_DAG_TAG = "Aggregate DAG"
+steps_from_yaml, _ = read_yaml_steps()
+ordered_step_ids = [step["id"] for step in steps_from_yaml]
 
 with DAG(
-    dag_id="pipeline_summarizer",
+    dag_id=SUMMARIZER_ID,
     dag_display_name="Summarizer",
     catchup=False,
     max_active_runs=1,
@@ -34,9 +38,7 @@ with DAG(
     def _get_dags_and_subject_tags() -> tuple[dict[str, DAG], set[str]]:
         dag_bag: DagBag = DagBag(include_examples=False)
         relevant_dags: list[DAG] = [
-            dag
-            for dag in dag_bag.dags.values()
-            if dag.tags and SUMMARIZER_TAG not in dag.tags
+            dag for dag in dag_bag.dags.values() if dag.dag_id != SUMMARIZER_ID
         ]
 
         all_dags = {dag.dag_id: dag for dag in relevant_dags}
@@ -52,6 +54,16 @@ with DAG(
         }
 
         return most_recent_dag_runs
+
+    def _sort_column(col):
+        sorted_indices = []
+        for task_id in col:
+            if task_id in ordered_step_ids:
+                sorted_indices.append(ordered_step_ids.index(task_id))
+            else:
+                sorted_indices.append(0)
+
+        return sorted_indices
 
     def _get_report_summary(
         all_dags: dict[str, DAG],
@@ -70,13 +82,6 @@ with DAG(
         )
 
         for dag_id, run_obj in most_recent_dag_runs.items():
-            corresponding_dag = all_dags[dag_id]
-            dag_tags = [
-                tag for tag in corresponding_dag.tags if "subject" not in tag.lower()
-            ]
-            if not dag_tags:
-                dag_tags = [corresponding_dag.dag_display_name]
-
             if run_obj is None:
                 task_list = all_dags[dag_id].tasks
                 for task in task_list:
@@ -88,10 +93,12 @@ with DAG(
 
             for task in task_list:
                 task_id = task.task_id
+                if task_id not in ordered_step_ids:
+                    continue
+
                 update_dict = {
                     "Task Name": task.task_display_name,
                     "Task ID": task_id,
-                    "DAG Tags": dag_tags,
                     "DAG ID": dag_id,
                     "Task Status": task.state,
                     "Run Status": run_state,
@@ -100,9 +107,11 @@ with DAG(
                 task_df = pd.DataFrame([update_dict])
                 progress_df = pd.concat([progress_df, task_df])
 
-        progress_df = progress_df.sort_values(by=["DAG ID", "Task ID"])
+        progress_df = progress_df.sort_values(
+            by=["Task ID"],
+            key=_sort_column,
+        )
         all_tasks = progress_df["Task Complete ID"].unique()
-        all_dag_tags = progress_df["DAG Tags"].explode().unique()
         summary_dict = defaultdict(lambda: dict())
 
         for task_complete_id in all_tasks:
@@ -113,25 +122,14 @@ with DAG(
                 relevant_df[relevant_df["Task Status"] == State.SUCCESS]
             ) / len(relevant_df)
             sucess_percentage = round(task_success_ratio * 100, 3)
-            dag_tag_list = relevant_df["DAG Tags"].explode().unique()
-            for dag_tag in dag_tag_list:
-                for task_name in relevant_df["Task Name"].unique():
-                    summary_dict[dag_tag][task_name] = sucess_percentage
+            for task_name in relevant_df["Task Name"].unique():
+                summary_dict[task_name] = sucess_percentage
 
-        for dag_tag in all_dag_tags:
-            relevant_df = progress_df[
-                progress_df["DAG Tags"].apply(lambda x: dag_tag in x)
-            ]
-            dag_run_completion = len(
-                relevant_df[relevant_df["Run Status"] == State.SUCCESS]
-            ) / len(relevant_df)
-            dag_sucess_percentage = round(dag_run_completion * 100, 3)
-            summary_dict[dag_tag]["DAG Completion"] = dag_sucess_percentage
         summary_dict = dict(summary_dict)
 
         execution_status = "done"
-        for dag_id, task_dict in summary_dict.items():
-            if task_dict["DAG Completion"] < 100.0:
+        for task_name, success_percentage in summary_dict.items():
+            if success_percentage < 100.0:
                 execution_status = "running"
                 break
 
