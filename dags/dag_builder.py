@@ -26,8 +26,6 @@ class DagBuilder:
         # TODO Assumes tasks are ordered. Improve!
         self._id_prefix = None
         self.operator_builders = operator_builders
-        self._first_task = self.operator_builders[0]
-        self._final_task = self.operator_builders[-1]
         self.dag_id = self.create_legal_dag_id()
         self.dag_display_name = self.create_dag_display_name()
         self.inlets = inlets
@@ -41,11 +39,15 @@ class DagBuilder:
 
     @property
     def id_prefix(self):
+        first_task = self.operator_builders[0]
+        final_task = self.operator_builders[-1]
         if self._id_prefix is None:
-            if self._final_task.operator_id == self._first_task.operator_id:
-                self._id_prefix = self._first_task.operator_id
+            if final_task.operator_id == first_task.operator_id:
+                self._id_prefix = first_task.operator_id
             else:
-                self._id_prefix = f"from_{self._first_task.operator_id}_until_{self._final_task.operator_id}"
+                self._id_prefix = (
+                    f"from_{first_task.operator_id}_until_{final_task.operator_id}"
+                )
         return self._id_prefix
 
     def create_legal_dag_id(self, replace_char="_"):
@@ -59,8 +61,9 @@ class DagBuilder:
 
     def create_dag_tags(self):
         tags = {
-            self._first_task.display_name,
-            self._final_task.display_name,
+            builder.display_name
+            for builder in self.operator_builders
+            if builder.from_yaml
         }
         if self.dag_id_suffix is not None:
             tags.add(self.dag_id_suffix)

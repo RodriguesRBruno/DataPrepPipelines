@@ -63,10 +63,13 @@ def operator_factory(type, **kwargs) -> list[OperatorBuilder]:
             operator_id=sensor_id,
             next_ids=[branching_id],
             conditions_definitions=conditions_definitions,
+            from_yaml=False,
         )
 
         empty_operators = [
-            EmptyOperatorBuilder(operator_id=empty_id, next_ids=[next_id])
+            EmptyOperatorBuilder(
+                operator_id=empty_id, next_ids=[next_id], from_yaml=False
+            )
             for empty_id, next_id in zip(empty_ids, ids_after_empty)
         ]
 
@@ -74,6 +77,7 @@ def operator_factory(type, **kwargs) -> list[OperatorBuilder]:
             next_ids=[empty_id for empty_id in empty_ids],
             previous_sensor=sensor_operator,
             operator_id=branching_id,
+            from_yaml=False,
         )
         return_list.extend([sensor_operator, branch_operator, *empty_operators])
 

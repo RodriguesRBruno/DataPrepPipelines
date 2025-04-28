@@ -15,6 +15,7 @@ class OperatorBuilder(ABC):
         on_error: str = None,
         outlets: list[Dataset] = None,
         limit: int = None,
+        from_yaml: bool = True,
         **kwargs,
     ):
         # TODO add logic to import on_error as a callable
@@ -28,6 +29,8 @@ class OperatorBuilder(ABC):
         else:
             self.next_ids = next_ids
         self.outlets = outlets or []
+
+        self.from_yaml = from_yaml
 
         if limit is not None:
             pool_obj = Pool.create_or_update_pool(
