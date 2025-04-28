@@ -10,6 +10,4 @@ data/
 report_summary.yaml
 workflow.yaml
 .vscode
-dags/user/
-workspace*/
 dags_renamed*/
