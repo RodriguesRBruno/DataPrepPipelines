@@ -62,7 +62,7 @@ def read_yaml_steps():
     except Exception:
         print(f"Unable to load YAML file {yaml_file}. It will be skipped.")
 
-    return yaml_dag_info["steps"]
+    return yaml_dag_info["steps"], yaml_dag_info.get("conditions")
 
 
 def get_per_subject_from_step(step: Optional[dict[str, str]] = None):
@@ -121,7 +121,9 @@ def make_dag_builder_list(
     return dags_list, outlets
 
 
-def map_operators_from_yaml(steps_from_yaml) -> list[DagBuilder]:
+def map_operators_from_yaml(
+    steps_from_yaml: list[dict[str, str]], conditions_from_yaml: list[dict[str, str]]
+) -> list[DagBuilder]:
     subject_subdirectories = read_subject_directories()
     dags_list = []
     steps_for_dag: list[OperatorBuilder] = []
@@ -145,6 +147,7 @@ def map_operators_from_yaml(steps_from_yaml) -> list[DagBuilder]:
             previous_outlets = tmp_outlets
             steps_for_dag = []
 
+        current_step["conditions_definitions"] = conditions_from_yaml
         new_operators = operator_factory(**current_step)
         steps_for_dag.extend(new_operators)
         previous_per_subject = per_subject

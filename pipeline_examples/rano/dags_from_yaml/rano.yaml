@@ -100,3 +100,12 @@ steps:
     <<: *BASE_STEP
     command: metrics
     next: null
+
+conditions:
+  - id: annotation_done
+    type: function
+    function_name: conditions.annotation_done
+
+  - id: brain_mask_changed
+    type: function
+    function_name: conditions.brain_mask_changed

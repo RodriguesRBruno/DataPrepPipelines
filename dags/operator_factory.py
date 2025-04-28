@@ -15,6 +15,15 @@ def operator_factory(type, **kwargs) -> list[OperatorBuilder]:
     return_list = []
     kwargs["operator_id"] = kwargs.pop("id", None)
     id_info = kwargs.pop("next", [])
+    conditions_definitions = kwargs.pop(
+        "conditions_definitions"
+    )  # [{'id': 'condition_1', 'type': 'function', 'function_name': 'function_name'}...]
+    conditions_definitions = {
+        condition["id"]: {key: value}
+        for condition in conditions_definitions
+        for key, value in conditions.items()
+        if key != "id"
+    }  # {'condition_1: {'type': 'function', 'function_name': 'function_name'}, ...}
 
     if isinstance(id_info, dict):
         # If we have a branching condition in YAML, we return three operators:
@@ -55,6 +64,7 @@ def operator_factory(type, **kwargs) -> list[OperatorBuilder]:
             wait_time=wait_time,
             operator_id=sensor_id,
             next_ids=[branching_id],
+            conditions_definitions=conditions_definitions,
         )
 
         empty_operators = [
