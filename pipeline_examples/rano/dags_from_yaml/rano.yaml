@@ -52,12 +52,18 @@ steps:
         - condition: annotation_done
           target: segmentation_comparison
         - condition: brain_mask_changed
-          target: brain_extraction
+          target: rollback_to_brain_extract
       else: prepare_for_manual_review
       wait: 60
     on_error: do_something
     per_subject: true
   
+  - id: rollback_to_brain_extract
+    <<: *BASE_STEP
+    command: rollback_to_brain_extract
+    next: brain_extraction
+    per_subject: true
+
   - id: segmentation_comparison
     <<: *BASE_STEP
     command: segmentation_comparison
