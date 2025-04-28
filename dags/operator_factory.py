@@ -19,10 +19,8 @@ def operator_factory(type, **kwargs) -> list[OperatorBuilder]:
         "conditions_definitions"
     )  # [{'id': 'condition_1', 'type': 'function', 'function_name': 'function_name'}...]
     conditions_definitions = {
-        condition["id"]: {key: value}
+        condition["id"]: {key: value for key, value in condition.items() if key != "id"}
         for condition in conditions_definitions
-        for key, value in conditions.items()
-        if key != "id"
     }  # {'condition_1: {'type': 'function', 'function_name': 'function_name'}, ...}
 
     if isinstance(id_info, dict):
