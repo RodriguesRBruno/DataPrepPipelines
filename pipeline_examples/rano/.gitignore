@@ -5,9 +5,10 @@
 *.mat
 *.dcm
 *.png
-**workspace*/*
+!readme_images/*.png
+workspace*/*
+!workspace/parameters.yaml
 !requirements.txt
-!*/workspace/parameters.yaml
 models
 tmpmodel
 **/data_prep_models/
