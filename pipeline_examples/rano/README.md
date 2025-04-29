@@ -215,7 +215,7 @@ The outputs of the pipeline, upon its conclusion, are as follows:
 - The `${WORKSPACE_DIR}/labels` directory contains the final tumor segmentations for each subject.
 
 - The `${DATA_DIR}` directory contains two different outputs.
-  - The NIfTi files obtained for each subject after Brain Extraction, located at `${DATA}/{SUBJECT_ID}/{TIMEPOINT}` for each subject/timepoint combination.
+  - The NIfTi files obtained for each subject after Brain Extraction, located at `${DATA_DIR}/{SUBJECT_ID}/{TIMEPOINT}` for each subject/timepoint combination.
   - A `splits.csv` file detailing whether each subject was separated into the training or validation data sets.
   - A `train.csv` file containing only subjects in the training dataset.
   - A `val.csv` file containing only subjects in the validation dataset. 
