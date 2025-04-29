@@ -71,7 +71,7 @@ Downsampled images may be used for testing purposes, along with a modified Docke
 - Download and extract (sha256: 701fbba8b253fc5b2f54660837c493a38dec986df9bdbf3d97f07c8bc276a965):
 <https://storage.googleapis.com/medperf-storage/rano_test_assets/dev.tar.gz>
 
-- Create a `workspace` directory at the same level as this file and move the `additional_files` and `input_data` directories to `workspace/additional_files`and `workspace/input_data` respectively. Also create a `data` directory inside `workspace`.
+- Move the `additional_files` and `input_data` directories to `workspace/additional_files` and `workspace/input_data` respectively. Also create a `data` directory inside `workspace`.
 
 - Move the `tmpmodel`directory and `atlasImage_0.125.nii.gz` file into the `pipeline/project` directory.
 
@@ -116,7 +116,7 @@ Once the `.env.rano` file is properly configured, Airflow can be started via Doc
 docker compose --env-file .env.rano -p rano up
 ```
 
-This command starts a Docker Compose project named `rano` based on the env file `.env.crano`. The Airflow image is configured so that the pipeline will start immediately after the initial Airflow start up. The Airflow Web UI can be accessed at (http://localhost:8080/), using the **_AIRFLOW_USER** and **_AIRFLOW_PASSWORD** values defined in the `.env.rano` file as the Username and Password to monitor runs.
+This command starts a Docker Compose project named `rano` based on the env file `.env.rano`. The Airflow image is configured so that the pipeline will start immediately after the initial Airflow start up. The Airflow Web UI can be accessed at (http://localhost:8080/), using the **_AIRFLOW_USER** and **_AIRFLOW_PASSWORD** values defined in the `.env.rano` file as the Username and Password to monitor runs.
 
 ## 4. Pipeline Overiew
 A general view of the pipeline is shown in the Figure below. A initial setup creating required directories is performed at first. Then, the pipeline will run NIfTI Conversion for multiple subjects in parallel. For each subject, once NIfTi conversion is completed, the pipelin will automatically run the Brain Extraction and Tumor Extraction stages and then await for manual confirmation (see [Section 5.1](#51-manual-approval-steps) for instructions regarding manual confirmation). The `per subject: true` configuration present in multiple steps of the pipeline signifies that this splitting per subject must be done at these steps.
@@ -144,22 +144,22 @@ In the Figure above, Subjects AAAC_1/2008.03.031 and AAAC_2/2001.01.01 are ready
 Once the segmentation for a given subject is ready for review, it will be available at the following path:
 
 ```
-data/manual_review/tumor_extraction/{SUBJECT_ID}/{TIMEPOINT}/under_review/{SUBJECT_ID}_{TIMEPOINT}_tumorMask_model_0.nii.gz
+${DATA_DIR}/manual_review/tumor_extraction/{SUBJECT_ID}/{TIMEPOINT}/under_review/{SUBJECT_ID}_{TIMEPOINT}_tumorMask_model_0.nii.gz
 ```
 
-Where `data` is the output data directory defined in [Section 1.1.2](#112-output-data),`{SUBJECT_ID}` and `{TIMEPOINT}` must be substituted for the corresponding SubjectID and Timepoint of each data point. Note that this is in the `under_review` directory, signalling the tumor segmentation has not been reviewed yet. For example, for subject AAAC_2 and timepoint 2001.01.01 the complete path would be:
+Where `${DATA_DIR}` is the output data directory defined in [Section 1.1.2](#112-output-data),`{SUBJECT_ID}` and `{TIMEPOINT}` must be substituted for the corresponding SubjectID and Timepoint of each data point. Note that this is in the `under_review` directory, signalling the tumor segmentation has not been reviewed yet. For example, for subject AAAC_2 and timepoint 2001.01.01 the complete path would be:
 
 ```
-data/manual_review/tumor_extraction/AAAC_2/2001.01.01/under_review/AAAC_2_2001.01.01_tumorMask_model_0.nii.gz
+${DATA_DIR}/manual_review/tumor_extraction/AAAC_2/2001.01.01/under_review/AAAC_2_2001.01.01_tumorMask_model_0.nii.gz
 ```
 
 The tumor segmentation can be reviewed with the software of your choice and, if necessary, corrections can be made. Once the review is finished, the file must be moved to the adjacent `finalized` directory. The complete path to the `finalized` file is, then
 
 ```
-data/manual_review/tumor_extraction/{SUBJECT_ID}/{TIMEPOINT}/finalized/{SUBJECT_ID}_{TIMEPOINT}_tumorMask_model_0.nii.gz
+${DATA_DIR}/manual_review/tumor_extraction/{SUBJECT_ID}/{TIMEPOINT}/finalized/{SUBJECT_ID}_{TIMEPOINT}_tumorMask_model_0.nii.gz
 ```
 
-Where `data` is the output data directory defined in [Section 1.1.2](#112-output-data), `{SUBJECT_ID}` and `{TIMEPOINT}` must be substituted for the corresponding SubjectID and Timepoint of each data point. Note that this is in the `finalized` directory, signalling the review has been done. Once the Tumor Segmentation is in the `finalized` directory, the pipeline will automatically detect it and proceed for this subject. ***IMPORTANT!! Do NOT change the filename when moving the file into the finalized directory!*** The pipeline will only detect the reviewed Tumor Segmentation if it keeps the exact same filename.
+Where `${DATA_DIR}` is the output data directory defined in [Section 1.1.2](#112-output-data), `{SUBJECT_ID}` and `{TIMEPOINT}` must be substituted for the corresponding SubjectID and Timepoint of each data point. Note that this is in the `finalized` directory, signalling the review has been done. Once the Tumor Segmentation is in the `finalized` directory, the pipeline will automatically detect it and proceed for this subject. ***IMPORTANT!! Do NOT change the filename when moving the file into the finalized directory!*** The pipeline will only detect the reviewed Tumor Segmentation if it keeps the exact same filename.
 
 Please do this review process for all subjects in the study. If the brain mask itself must be corrected for any subjects, please refer to [Section 5.1.2](#512-brain-mask-correction). Note that modifying the Brain Mask of a Subject will cause the pipeline to rollback to the Brain Extraction step corresponding to that subject to run again, after which the given Tumor Segmentation must be manually approved once ready.
 
@@ -168,15 +168,15 @@ Please do this review process for all subjects in the study. If the brain mask i
 If the automatic brain mask is correct, no action from this section is required. However, it is also possible to make corrections to the automatic brain mask, if necessary. **Note that if the Brain Mask is modified, the pipeline will go back to the Brain Extraction stage for this subject, then run Tumor Extraction and await for manual approval once again oncfe the Tumor Extraction is completed.** Once the pipeline reaches the manual approval step for a given subject/timepoint, the brain mask file will be located at the path below:
 
 ```
-data/manual_review/brain_mask/{SUBJECT_ID}/{TIMEPOINT/under_review/brainMask_fused.nii.gz
+${DATA_DIR}/manual_review/brain_mask/{SUBJECT_ID}/{TIMEPOINT/under_review/brainMask_fused.nii.gz
 ```
 
-Where data is the output data directory defined in [Section 1.1.2](#112-output-data), `{SUBJECT_ID}` and `{TIMEPOINT}` must be substituted for the corresponding SubjectID and Timepoint of each data point. Note that this is in the `under_review` directory, signalling the tumor segmentation has not been reviewed yet. 
+Where ${DATA_DIR} is the output data directory defined in [Section 1.1.2](#112-output-data), `{SUBJECT_ID}` and `{TIMEPOINT}` must be substituted for the corresponding SubjectID and Timepoint of each data point. Note that this is in the `under_review` directory, signalling the tumor segmentation has not been reviewed yet. 
 
 The brain mask can be reviewed and corrected with the software of your choice and, if necessary, corrections can be made. Once the corrections are finished, the file must be moved to the adjacent `finalized` directory. The complete path to the finalized file is, then:
 
 ```
-data/manual_review/brain_mask/{SUBJECT_ID}/{TIMEPOINT/finalized/brainMask_fused.nii.gz
+${DATA_DIR}/manual_review/brain_mask/{SUBJECT_ID}/{TIMEPOINT/finalized/brainMask_fused.nii.gz
 ```
 
 ***IMPORTANT!! Do NOT change the filename when moving the file into the finalized directory!*** The pipeline will only detect the corrected Brain Mask if it keeps the exact same filename.
@@ -208,7 +208,7 @@ Once this procedure is done, the pipeline will proceed to its final steps and co
 
 The outputs of the pipeline, upon its conclusion, are as follows:
 
-- The `report_summary` file, located at `${WORKSPACE_DIR}/report_summary.yaml` which is updated every 30 minutes with the completion percentages of each step defined on the Pipeline YAML file (`dags_from_yaml/rano.yaml`)
+- The `report_summary.yaml` file, located at `${WORKSPACE_DIR}/report_summary.yaml` which is updated every 30 minutes with the completion percentages of each step defined on the Pipeline YAML file (`dags_from_yaml/rano.yaml`)
 
 - The `${WORKSPACE_DIR}/metadata` directory contains metadata YAML files for each subject, extracted from the initial DICOM data.
 
