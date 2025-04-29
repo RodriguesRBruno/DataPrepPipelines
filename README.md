@@ -1,6 +1,6 @@
 # Data Preparation Pipelines
 
-This repository contains two Data Preparation Pipeline  examples to be run in Airflow. One pipeline runs a simple data preparation procedure on the CheXpert Dataset and the other one is modified version of the pipeline used in the RANO study. The two pipelines are defined in YAML files located at `pipeline_examples/chexpert/dags_from_yaml/chexpert.yaml` and `pipeline_examples/rano/dags_from_yaml/rano.yaml`. This README file explains how to run the CheXpert pipeline, as it is the simpler of the two. A separate README file located at `pipeline_examples/rano/README.md` goes over how to run the RANO Data Preparation Pipeline.
+This repository contains two Data Preparation Pipeline  examples to be run in Airflow. One pipeline runs a simple data preparation procedure on the CheXpert Dataset and the other one is modified version of the pipeline used in the RANO study. The two pipelines are defined in YAML files located at `pipeline_examples/chexpert/dags_from_yaml/chexpert.yaml` and `pipeline_examples/rano/dags_from_yaml/rano.yaml`. This README file explains how to run the CheXpert pipeline, as it is the simpler of the two. A [separate README file](pipeline_examples/rano/README.md) goes over how to run the RANO Data Preparation Pipeline.
 
 ## 1. Generate the Airflow Docker Image
 The pipelines run on an Airflow Docker image built from this repository. The image contains the Python file to auto-generate DAGs from YAML files.

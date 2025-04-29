@@ -5,7 +5,7 @@ Here, a modified version of the data preparation pipeline used in the RANO study
 The Docker image used in this example is currently not available on a registry and must be therefore built from this repo. [Section 1](#1-building-the-rano-pipeline-docker-image) will go over the process of building this image and obtaining sample data to test the pipeline. [Section 2](#2-configuring-the-env-file-for-the-rano-pipeline) will then go over configuring the `.env.rano` file to run this pipeline and [Section 3](#3-running-the-rano-pipeline) will go over running the pipeline, including monitoring it in Airflow.
 
 ## 1. Building the RANO Pipeline Docker image
-In the same directory as this file (that is, the `rano` directory), run the following command to generate the RANO Pipelin Docker image:
+In the same directory as this file (that is, the `rano` directory), run the following command to generate the RANO Pipeline Docker image:
 
 ```shell
 cd pipeline
@@ -119,7 +119,7 @@ docker compose --env-file .env.rano -p rano up
 This command starts a Docker Compose project named `rano` based on the env file `.env.rano`. The Airflow image is configured so that the pipeline will start immediately after the initial Airflow start up. The Airflow Web UI can be accessed at (http://localhost:8080/), using the **_AIRFLOW_USER** and **_AIRFLOW_PASSWORD** values defined in the `.env.rano` file as the Username and Password to monitor runs.
 
 ## 4. Pipeline Overiew
-A general view of the pipeline is shown in the Figure below. A initial setup creating required directories is performed at first. Then, the pipeline will run NIfTI Conversion for multiple subjects in parallel. For each subject, once NIfTi conversion is completed, the pipelin will automatically run the Brain Extraction and Tumor Extraction stages and then await for manual confirmation (see [Section 5.1](#51-manual-approval-steps) for instructions regarding manual confirmation). The `per subject: true` configuration present in multiple steps of the pipeline signifies that this splitting per subject must be done at these steps.
+A general view of the pipeline is shown in the Figure below. A initial setup creating required directories is performed at first. Then, the pipeline will run NIfTI Conversion for multiple subjects in parallel. For each subject, once NIfTi conversion is completed, the pipeline will automatically run the Brain Extraction and Tumor Extraction stages and then await for manual confirmation (see [Section 5.1](#51-manual-approval-steps) for instructions regarding manual confirmation). The `per subject: true` configuration present in multiple steps of the pipeline signifies that this splitting per subject must be done at these steps.
 
 ![Representation of the whole pipeline](readme_images/pipeline_diagram.png)
 
@@ -134,11 +134,11 @@ Once logged in, a list of all currently loaded Airflow DAGs will be displayed, a
 ![DAG view in Airflow](readme_images/dag_list.png)
 
 ### 5.1 Manual Approval Steps
-The automatic Tumor Segmentations must be manually validated before the Pipelin concludes. To help with finding the DAGs that are awaiting for Manual Approval, we recomend filtering DAGs by the `Prepare For Manual Review` tag, which corresponds to the final task run before the manual approval step. The Figure below shows a DAG list view in this situation, with the DAG filter in red:
+The automatic Tumor Segmentations must be manually validated before the Pipeline concludes. To help with finding the DAGs that are awaiting for Manual Approval, we recomend filtering DAGs by the `Prepare For Manual Review` tag, which corresponds to the final task run before the manual approval step. The Figure below shows a DAG list view in this situation, with the DAG filter in red:
 
 ![DAGs ready for Manual Review](readme_images/dags_manual_review.png)
 
-In the Figure above, Subjects AAAC_1/2008.03.031 and AAAC_2/2001.01.01 are ready for manual review, signalled by the `Recent Tasks`  (in blue) column having a light blue circle, indicating a task with status `Up for Reschedule`. This status means that none of the conditions defined in step `prepare_for_manual_review` of the YAML file (`dags_from_yaml/rano.yaml`) have been met yet, and therefore the pipelin is waiting for their manual completion by a user. The procedure for Manual Review is described in Sections [5.1](#51-manual-approval-steps---tumor-segmentation) and [5.2](#52-brain-mask-correction). Subject AAAC_1/2012.01.02 on the other hand, has a currently running task, signalled in lime green, and therefore is not ready for manual review yet.
+In the Figure above, Subjects AAAC_1/2008.03.031 and AAAC_2/2001.01.01 are ready for manual review, signalled by the `Recent Tasks`  (in blue) column having a light blue circle, indicating a task with status `Up for Reschedule`. This status means that none of the conditions defined in step `prepare_for_manual_review` of the YAML file (`dags_from_yaml/rano.yaml`) have been met yet, and therefore the pipeline is waiting for their manual completion by a user. The procedure for Manual Review is described in Sections [5.1](#51-manual-approval-steps---tumor-segmentation) and [5.2](#52-brain-mask-correction). Subject AAAC_1/2012.01.02 on the other hand, has a currently running task, signalled in lime green, and therefore is not ready for manual review yet.
 
 #### 5.1.1 Tumor Segmentation
 Once the segmentation for a given subject is ready for review, it will be available at the following path:
