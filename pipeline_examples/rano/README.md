@@ -121,7 +121,7 @@ This command starts a Docker Compose project named `rano` based on the env file 
 ## 4. Pipeline Overiew
 A general view of the pipeline is shown in the Figure below. A initial setup creating required directories is performed at first. Then, the pipeline will run NIfTI Conversion for multiple subjects in parallel. For each subject, once NIfTi conversion is completed, the pipeline will automatically run the Brain Extraction and Tumor Extraction stages and then await for manual confirmation (see [Section 5.1](#51-manual-approval-steps) for instructions regarding manual confirmation). The `per subject: true` configuration present in multiple steps of the pipeline signifies that this splitting per subject must be done at these steps.
 
-![Representation of the whole pipeline](readme_images/pipeline_diagram.png)
+![Representation of the whole pipeline](./readme_images/pipeline_diagram.png)
 
 When the parser converts the YAML file into Airflow, each box in the above Figure is converted into a Directed Acyclic Graph (DAG) in Airflow. This results in the Airflow form of the pipeline being constructed as multiple DAGs, which can be though of as a grouping of one or more data processing steps. The Airflow Docker image also has a Summarizer DAG is also present which is not part of the pipeline itself but rather writes a summary of the current execution status every 30 minutes, so the Benchmark Owner can track the study’s progress.
 
@@ -131,12 +131,12 @@ Airflow’s Web UI can be used to monitor the Pipeline while it is running. It c
 
 Once logged in, a list of all currently loaded Airflow DAGs will be displayed, as shown below. The pipeline itself consists of multiple DAGs. Each DAG is tagged with all the steps (from the `dags_from_yaml/rano.yaml` file) and, in case of steps with `per_subject: true`, also by the Subject ID and Timepoint.
 
-![DAG view in Airflow](readme_images/dag_list.png)
+![DAG view in Airflow](./readme_images/dag_list.png)
 
 ### 5.1 Manual Approval Steps
 The automatic Tumor Segmentations must be manually validated before the Pipeline concludes. To help with finding the DAGs that are awaiting for Manual Approval, we recomend filtering DAGs by the `Prepare For Manual Review` tag, which corresponds to the final task run before the manual approval step. The Figure below shows a DAG list view in this situation, with the DAG filter in red:
 
-![DAGs ready for Manual Review](readme_images/dags_manual_review.png)
+![DAGs ready for Manual Review](./readme_images/dags_manual_review.png)
 
 In the Figure above, Subjects AAAC_1/2008.03.031 and AAAC_2/2001.01.01 are ready for manual review, signalled by the `Recent Tasks`  (in blue) column having a light blue circle, indicating a task with status `Up for Reschedule`. This status means that none of the conditions defined in step `prepare_for_manual_review` of the YAML file (`dags_from_yaml/rano.yaml`) have been met yet, and therefore the pipeline is waiting for their manual completion by a user. The procedure for Manual Review is described in Sections [5.1](#51-manual-approval-steps---tumor-segmentation) and [5.2](#52-brain-mask-correction). Subject AAAC_1/2012.01.02 on the other hand, has a currently running task, signalled in lime green, and therefore is not ready for manual review yet.
 
@@ -186,21 +186,21 @@ There is also a manual confirmation step towards the end of the pipeline (step I
 
 Once all results are reviewed, log into Airflow's Web UI. Locate the DAG tagged with `Final Confirmation`. A Filter by tag may be used, as shown in the Figure below, in red.
 
-![Filtering DAGs by the Final Confirmation tag.](readme_images/dag_list_filtered_final_confirmation.png)
+![Filtering DAGs by the Final Confirmation tag.](./readme_images/dag_list_filtered_final_confirmation.png)
 
 If the DAG has one completed task (dark green) and one failed task (red) in the Recent Tasks column (blue rectangle), it is ready for review. In this situation, please select the DAG by clicking on its name to open the DAG view.
 
 Once in the DAG view, click the `Graph` button to view the DAG as a Graph and look for the `Final Confirmation` task. Initially, it should be displayed in red with a `Failed` status. The Figures below illustrates this.
 
-![Final Confirmation task in the DAG Graph view](readme_images/click_graph_button.png)
+![Final Confirmation task in the DAG Graph view](./readme_images/click_graph_button.png)
 
-![Final Confirmation task in the DAG Graph view](readme_images/final_confirmation_task.png)
+![Final Confirmation task in the DAG Graph view](./readme_images/final_confirmation_task.png)
 
 **If you have already validated all the Tumor Segmentations**, select the `Final Confirmation` task. A `Mark state as..` button should appear in the UI. Click on it, select `Success` and confirm your choice. The Figures below illustrate this process.
 
-![Selecting the Success option in the Mark as Success button](readme_images/mark_state_as_button.png)
+![Selecting the Success option in the Mark as Success button](./readme_images/mark_state_as_button.png)
 
-![Confirmation for setting task as success](readme_images/mark_as_success_confirmation.png)
+![Confirmation for setting task as success](./readme_images/mark_as_success_confirmation.png)
 
 Once this procedure is done, the pipeline will proceed to its final steps and conclusion.
 
