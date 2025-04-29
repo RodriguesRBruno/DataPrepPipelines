@@ -73,9 +73,9 @@ steps:
   - id: calculate_changed_voxels
     <<: *BASE_STEP
     command: calculate_changed_voxels
-    next: manual_review
+    next: final_confirmation
 
-  - id: manual_review
+  - id: final_confirmation
     type: manual_approval
     next: move_labeled_files
 

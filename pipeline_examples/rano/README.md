@@ -13,7 +13,7 @@ sh build.sh
 ```
 This may take some time to finish. At the end of the execution, two new Docker images will be created: `local/rano-data-prep-mlcube:1.0.14,` which is the RANO Data Preparation Pipeline image, and `local/fets_tool`, an intermediary image used in generating the Pipeline image. Note that the version tag in the local/rano-data-prep-mlcube may be different if the image is updated on a later date.
 
-Real data for running the pipeline is not available in this repository. However, some downsampled data used for testing is available, as described in [Section 1.1](#12-using-the-development-image-for-testing) below.
+Real data for running the pipeline is not available in this repository. However, some downsampled data used for testing is available, as described in [Section 1.2](#12-using-the-development-image-for-testing) below.
 
 ### 1.1 Structuring your data
 
@@ -118,14 +118,14 @@ docker compose --env-file .env.rano -p rano up
 
 This command starts a Docker Compose project named `rano` based on the env file `.env.crano`. The Airflow image is configured so that the pipeline will start immediately after the initial Airflow start up. The Airflow Web UI can be accessed at (http://localhost:8080/), using the **_AIRFLOW_USER** and **_AIRFLOW_PASSWORD** values defined in the `.env.rano` file as the Username and Password to monitor runs.
 
-### 4. Pipeline Overiew
-A general view of the pipeline is shown in the Figure below. A initial setup creating required directories is performed at first. Then, the pipeline will run NIfTI Conversion for multiple subjects in parallel. For each subject, once NIfTi conversion is completed, the pipelin will automatically run the Brain Extraction and Tumor Extraction stages and then await for manual confirmation (see [Section X.X]() for instructions regarding manual confirmation). The `per subject: true` configuration present in multiple steps of the pipeline signifies that this splitting per subject must be done at these steps.
+## 4. Pipeline Overiew
+A general view of the pipeline is shown in the Figure below. A initial setup creating required directories is performed at first. Then, the pipeline will run NIfTI Conversion for multiple subjects in parallel. For each subject, once NIfTi conversion is completed, the pipelin will automatically run the Brain Extraction and Tumor Extraction stages and then await for manual confirmation (see [Section 5.1](#51-manual-approval-steps) for instructions regarding manual confirmation). The `per subject: true` configuration present in multiple steps of the pipeline signifies that this splitting per subject must be done at these steps.
 
 ![Representation of the whole pipeline](readme_images/pipeline_diagram.png)
 
 When the parser converts the YAML file into Airflow, each box in the above Figure is converted into a Directed Acyclic Graph (DAG) in Airflow. This results in the Airflow form of the pipeline being constructed as multiple DAGs, which can be though of as a grouping of one or more data processing steps. The Airflow Docker image also has a Summarizer DAG is also present which is not part of the pipeline itself but rather writes a summary of the current execution status every 30 minutes, so the Benchmark Owner can track the study’s progress.
 
-### 5. Monitoring in Airflow
+## 5. Monitoring in Airflow
 Airflow’s Web UI can be used to monitor the Pipeline while it is running. It can be accessed via port 8080 in the Machine where Airflow is running. If running locally, you can simply open http://localhost:8080/ on your Browser to access the UI. Use the `_AIRFLOW_USER` and `_AIRFLOW_PASSWORD` defined in the `.env.rano` file from [Section 2](#2-configuring-the-env-file-for-the-rano-pipeline) to log in.
 
 
@@ -133,8 +133,15 @@ Once logged in, a list of all currently loaded Airflow DAGs will be displayed, a
 
 ![DAG view in Airflow](readme_images/dag_list.png)
 
-#### 5.1 Manual Approval Steps
-The automatic Tumor Segmentations must be manually validated before the Pipelin concludes. Once a segmentation is ready for review, it will be available at the following path:
+### 5.1 Manual Approval Steps
+The automatic Tumor Segmentations must be manually validated before the Pipelin concludes. To help with finding the DAGs that are awaiting for Manual Approval, we recomend filtering DAGs by the `Prepare For Manual Review` tag, which corresponds to the final task run before the manual approval step. The Figure below shows a DAG list view in this situation, with the DAG filter in red:
+
+![DAGs ready for Manual Review](readme_images/dags_manual_review.png)
+
+In the Figure above, Subjects AAAC_1/2008.03.031 and AAAC_2/2001.01.01 are ready for manual review, signalled by the `Recent Tasks`  (in blue) column having a light blue circle, indicating a task with status `Up for Reschedule`. This status means that none of the conditions defined in step `prepare_for_manual_review` of the YAML file (`dags_from_yaml/rano.yaml`) have been met yet, and therefore the pipelin is waiting for their manual completion by a user. The procedure for Manual Review is described in Sections [5.1](#51-manual-approval-steps---tumor-segmentation) and [5.2](#52-brain-mask-correction). Subject AAAC_1/2012.01.02 on the other hand, has a currently running task, signalled in lime green, and therefore is not ready for manual review yet.
+
+#### 5.1.1 Tumor Segmentation
+Once the segmentation for a given subject is ready for review, it will be available at the following path:
 
 ```
 data/manual_review/tumor_extraction/{SUBJECT_ID}/{TIMEPOINT}/under_review/{SUBJECT_ID}_{TIMEPOINT}_tumorMask_model_0.nii.gz
@@ -144,7 +151,7 @@ Where `data` is the output data directory defined in [Section 1.1.2](#112-output
 
 ```
 data/manual_review/tumor_extraction/AAAC_2/2001.01.01/under_review/AAAC_2_2001.01.01_tumorMask_model_0.nii.gz
-````
+```
 
 The tumor segmentation can be reviewed with the software of your choice and, if necessary, corrections can be made. Once the review is finished, the file must be moved to the adjacent `finalized` directory. The complete path to the `finalized` file is, then
 
@@ -154,11 +161,11 @@ data/manual_review/tumor_extraction/{SUBJECT_ID}/{TIMEPOINT}/finalized/{SUBJECT_
 
 Where `data` is the output data directory defined in [Section 1.1.2](#112-output-data), `{SUBJECT_ID}` and `{TIMEPOINT}` must be substituted for the corresponding SubjectID and Timepoint of each data point. Note that this is in the `finalized` directory, signalling the review has been done. Once the Tumor Segmentation is in the `finalized` directory, the pipeline will automatically detect it and proceed for this subject. ***IMPORTANT!! Do NOT change the filename when moving the file into the finalized directory!*** The pipeline will only detect the reviewed Tumor Segmentation if it keeps the exact same filename.
 
-Please do this review process for all subjects in the study. If the brain mask itself must be corrected for any subjects, please refer to [Section 5.2](#52-brain-mask-correction). Note that modifying the Brain Mask of a Subject will cause the pipeline to rollback to the Brain Extraction step corresponding to that subject to run again, after which the given Tumor Segmentation must be manually approved once ready.
+Please do this review process for all subjects in the study. If the brain mask itself must be corrected for any subjects, please refer to [Section 5.1.2](#512-brain-mask-correction). Note that modifying the Brain Mask of a Subject will cause the pipeline to rollback to the Brain Extraction step corresponding to that subject to run again, after which the given Tumor Segmentation must be manually approved once ready.
 
-#### 5.2 Brain Mask Correction
+#### 5.1.2 Brain Mask Correction
 
-If the automatic brain mask is correct, no action from this section is required. However, it is also possible to make corrections to the automatic brain mask, if necessary. Once the pipeline reaches the manual approval step for a given subject/timepoint, the brain mask file will be located at the path below:
+If the automatic brain mask is correct, no action from this section is required. However, it is also possible to make corrections to the automatic brain mask, if necessary. **Note that if the Brain Mask is modified, the pipeline will go back to the Brain Extraction stage for this subject, then run Tumor Extraction and await for manual approval once again oncfe the Tumor Extraction is completed.** Once the pipeline reaches the manual approval step for a given subject/timepoint, the brain mask file will be located at the path below:
 
 ```
 data/manual_review/brain_mask/{SUBJECT_ID}/{TIMEPOINT/under_review/brainMask_fused.nii.gz
@@ -175,3 +182,40 @@ data/manual_review/brain_mask/{SUBJECT_ID}/{TIMEPOINT/finalized/brainMask_fused.
 ***IMPORTANT!! Do NOT change the filename when moving the file into the finalized directory!*** The pipeline will only detect the corrected Brain Mask if it keeps the exact same filename.
 
 #### 5.3 Final Confirmation
+There is also a manual confirmation step towards the end of the pipeline (step ID `final_confirmation`, of type  `manual_approval`). When converted into an Airflow task, this step results into a task that always fails and must be manually set as Success by the user. **Before proceeding with this step, *make sure to review and Tumor Segmentations as per [Section 5.1.1](#511-manual-approval-steps---tumor-segmentation) and ensure you approve all of the results, along with necessary corrections to Brain Masks ([Section 5.1.2](#512-brain-mask-correction) if any are necessary.***
+
+Once all results are reviewed, log into Airflow's Web UI. Locate the DAG tagged with `Final Confirmation`. A Filter by tag may be used, as shown in the Figure below, in red.
+
+![Filtering DAGs by the Final Confirmation tag.](readme_images/dag_list_filtered_final_confirmation.png)
+
+If the DAG has one completed task (dark green) and one failed task (red) in the Recent Tasks column (blue rectangle), it is ready for review. In this situation, please select the DAG by clicking on its name to open the DAG view.
+
+Once in the DAG view, click the `Graph` button to view the DAG as a Graph and look for the `Final Confirmation` task. Initially, it should be displayed in red with a `Failed` status. The Figures below illustrates this.
+
+![Final Confirmation task in the DAG Graph view](readme_images/click_graph_button.png)
+
+![Final Confirmation task in the DAG Graph view](readme_images/final_confirmation_task.png)
+
+**If you have already validated all the Tumor Segmentations**, select the `Final Confirmation` task. A `Mark state as..` button should appear in the UI. Click on it, select `Success` and confirm your choice. The Figures below illustrate this process.
+
+![Selecting the Success option in the Mark as Success button](readme_images/mark_state_as_button.png)
+
+![Confirmation for setting task as success](readme_images/mark_as_success_confirmation.png)
+
+Once this procedure is done, the pipeline will proceed to its final steps and conclusion.
+
+## 6. Output Data
+
+The outputs of the pipeline, upon its conclusion, are as follows:
+
+- The `report_summary` file, located at `${WORKSPACE_DIR}/report_summary.yaml` which is updated every 30 minutes with the completion percentages of each step defined on the Pipeline YAML file (`dags_from_yaml/rano.yaml`)
+
+- The `${WORKSPACE_DIR}/metadata` directory contains metadata YAML files for each subject, extracted from the initial DICOM data.
+
+- The `${WORKSPACE_DIR}/labels` directory contains the final tumor segmentations for each subject.
+
+- The `${DATA}` directory contains two different outputs.
+  - The NIfTi files obtained for each subject after Brain Extraction, located at `${DATA}/{SUBJECT_ID}/{TIMEPOINT}` for each subject/timepoint combination.
+  - A `splits.csv` file detailing whether each subject was separated into the training or validation data sets.
+  - A `train.csv` file containing only subjects in the training dataset.
+  - A `val.csv` file containing only subjects in the validation dataset. 
