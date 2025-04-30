@@ -106,15 +106,6 @@ class OperatorBuilder(ABC):
         kwargs["operator_id"] = kwargs.pop("id", None)
 
         id_info = kwargs.pop("next", [])
-        conditions_definitions = kwargs.pop(
-            "conditions_definitions"
-        )  # [{'id': 'condition_1', 'type': 'function', 'function_name': 'function_name'}...]
-        conditions_definitions = {
-            condition["id"]: {
-                key: value for key, value in condition.items() if key != "id"
-            }
-            for condition in conditions_definitions
-        }  # {'condition_1: {'type': 'function', 'function_name': 'function_name'}, ...}
 
         if isinstance(id_info, dict):
             # If we have a branching condition in YAML, we return three operators:
@@ -131,6 +122,16 @@ class OperatorBuilder(ABC):
             )
             from .python_sensor_builder import PythonSensorBuilder
             from .empty_operator_builder import EmptyOperatorBuilder
+
+            conditions_definitions = kwargs.pop(
+                "conditions_definitions",
+            )  # [{'id': 'condition_1', 'type': 'function', 'function_name': 'function_name'}...]
+            conditions_definitions = {
+                condition["id"]: {
+                    key: value for key, value in condition.items() if key != "id"
+                }
+                for condition in conditions_definitions
+            }  # {'condition_1: {'type': 'function', 'function_name': 'function_name'}, ...}
 
             branching_info: list[dict[str, str]] = id_info.pop("if")
             sensor_id = f'sensor_from_{kwargs["operator_id"]}'
