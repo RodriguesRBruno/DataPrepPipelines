@@ -102,93 +102,123 @@ class DagBuilder:
 
         return self._generated_operators[operator_id]
 
+    def _get_operator_to_upstream_operators(
+        self, starting_task: OperatorBuilder
+    ) -> dict[OperatorBuilder, set[OperatorBuilder]]:
+        starting_task_id = starting_task.operator_id
+        ids_to_check = deque()
+        ids_to_check.append(starting_task_id)
+        tasks_in_this_cycle = []
+        operator_to_upstream_operators = defaultdict(set)
+
+        while ids_to_check:
+            task_id = ids_to_check.popleft()
+            task_builder = self._operator_id_to_builder_obj[task_id]
+            tasks_in_this_cycle.append(task_builder)
+
+            for next_id in task_builder.next_ids:
+                next_task = self._operator_id_to_builder_obj[next_id]
+                operator_to_upstream_operators[next_task].add(task_builder)
+                if next_task in tasks_in_this_cycle:
+                    continue
+                ids_to_check.append(next_id)
+
+        return operator_to_upstream_operators
+
+    def _get_partial_sub_builders(
+        self,
+        starting_task: OperatorBuilder,
+        operator_to_upstream_operators: dict[OperatorBuilder, set[OperatorBuilder]],
+    ) -> list[DagBuilder]:
+        """
+        This will make partial DAG SubBuilders for all tasks with more than one upstream
+        operator. This is a very general condition; will also be True for simple branches 
+        like
+                  / --if some condition ----> Task 2 --\
+        Task 1 --|                                      |--> Task 4
+                  \ --if other condition --> Task 3 --/
+        But DAGs should be constructed in a functional way regardless
+        IMPORTANT!!! This assumes that only one of Task 2 or Task 3 will be executed. Therefore
+        completing either of them will Trigger Task 4. This does NOT support running both Task 2
+        and Task 3 in parallel to only then execute Task 4.
+        """
+        operators_with_multiple_inlets = [
+            operator
+            for operator in operator_to_upstream_operators
+            if len(operator_to_upstream_operators[operator]) > 1
+        ]
+        if not operators_with_multiple_inlets:
+            return []
+
+        sub_builders = []
+        operator_to_inlets: dict[OperatorBuilder, list[Dataset]] = defaultdict(list)
+        operators_with_added_outlets: list[OperatorBuilder] = []
+        for operator in operators_with_multiple_inlets:
+            new_dataset = self._create_dataset_for_subbuilders(operator)
+            operator_to_inlets[operator].append(new_dataset)
+            tasks_to_modify = operator_to_upstream_operators[operator]
+            for task in tasks_to_modify:
+                task.remove_next_id(operator.operator_id)
+                task.add_outlets([new_dataset])
+                operators_with_added_outlets.append(task)
+
+        starting_tasks = [starting_task, *operators_with_multiple_inlets]
+        for starting_task in starting_tasks:
+            tasks_in_subcycle = [starting_task]
+            tasks_to_check = deque()
+            tasks_to_check.append(starting_task)
+
+            while tasks_to_check:
+                current_task: OperatorBuilder = tasks_to_check.popleft()
+                next_tasks = [
+                    self._operator_id_to_builder_obj[next_id]
+                    for next_id in current_task.next_ids
+                ]
+                tasks_to_check.extend(next_tasks)
+                tasks_in_subcycle.extend(next_tasks)
+
+            inlets = operator_to_inlets[starting_task] or None
+            sub_builder = DagBuilder(
+                tasks_in_subcycle, dag_id_suffix=self.dag_id_suffix, inlets=inlets
+            )
+            sub_builders.append(sub_builder)
+        return sub_builders
+
     def _set_sub_builders(self):
-        # find tasks that start the dag (not next_id of anything)
-        # check for cycles
-        # if found, deal with them
+        """
+        By definition, DAGs (Directed Acyclic Graphs) cannot have cycles.
+        This method will check for cycles and, if any are found, it will break down the the DAG Builder for this DAG
+        into multiple smaller DAG Builders, the sub builders.
+        This is done using Airflow Datasets, to make something similar to:
+        DAG 1: Pipeline Start -> Task 1 -> Task 2 -> Dataset 2
+        DAG 2: Dataset 2 -> Task 3 -> Task 4 ---if some condition---> end
+                                             \--if other condition--> Dataset 2
+        Having Task 4 re-trigger Dataset 2 is equivalent to having Task 4 go into Task 3 if "other condition" is met,
+        but will not be marked as a cycle in Airflow.
+
+        If no cycles are found, sub_builders will be set to an empty list and will not be used.
+        """
         sub_builders = []
         all_next_ids = set()
         for operator_builder in self.operator_builders:
             all_next_ids.update(operator_builder.next_ids)
 
-        starting_task_ids = [
-            task_id
-            for task_id in self._operator_id_to_builder_obj.keys()
-            if task_id not in all_next_ids
+        starting_tasks = [
+            task
+            for task in self.operator_builders
+            if task.operator_id not in all_next_ids
         ]
 
-        for starting_task_id in starting_task_ids:
-            starting_task = self._operator_id_to_builder_obj[starting_task_id]
-            tasks_to_modify = []
-            ids_to_check = deque()
-            ids_to_check.append(starting_task_id)
-            tasks_in_this_cycle: list[OperatorBuilder] = []
-            operator_to_upstream_operators: dict[
-                OperatorBuilder, set[OperatorBuilder]
-            ] = defaultdict(set)
-            while ids_to_check:
-                task_id = ids_to_check.popleft()
-                task_builder = self._operator_id_to_builder_obj[task_id]
-                tasks_in_this_cycle.append(task_builder)
+        for starting_task in starting_tasks:
+            operator_to_upstream_operators = self._get_operator_to_upstream_operators(
+                starting_task
+            )
 
-                # next_ids_to_modify = []
-                for next_id in task_builder.next_ids:
-                    next_task = self._operator_id_to_builder_obj[next_id]
-                    operator_to_upstream_operators[next_task].add(task_builder)
-                    if next_task in tasks_in_this_cycle:
-                        # next_ids_to_modify.append(next_id)
-                        continue
-                    ids_to_check.append(next_id)
-                # if next_ids_to_modify:
-                #     task_to_modify = TaskToModify(
-                #         task_builder=task_builder, next_ids_to_modify=next_ids_to_modify
-                #     )
-                #     tasks_to_modify.append(task_to_modify)
+            this_sub_builders = self._get_partial_sub_builders(
+                starting_task, operator_to_upstream_operators
+            )
 
-            # This is a very general condition; will also be True for simple branches like
-            #           / --> Task 2 --\
-            #  Task 1 --|              |--> Task 4
-            #           \ --> Task 3 --/
-            # But DAGs should be constructed in a functional way regardless
-            operators_with_multiple_inlets = [
-                operator
-                for operator in operator_to_upstream_operators
-                if len(operator_to_upstream_operators[operator]) > 1
-            ]
-            if not operators_with_multiple_inlets:
-                continue
-
-            operator_to_inlets: dict[OperatorBuilder, list[Dataset]] = defaultdict(list)
-            operators_with_added_outlets: list[OperatorBuilder] = []
-            for operator in operators_with_multiple_inlets:
-                new_dataset = self._create_dataset_for_subbuilders(operator)
-                operator_to_inlets[operator].append(new_dataset)
-                tasks_to_modify = operator_to_upstream_operators[operator]
-                for task in tasks_to_modify:
-                    task.remove_next_id(operator.operator_id)
-                    task.add_outlets([new_dataset])
-                    operators_with_added_outlets.append(task)
-
-            starting_tasks = [starting_task, *operators_with_multiple_inlets]
-            for starting_task in starting_tasks:
-                tasks_in_subcycle = [starting_task]
-                tasks_to_check = deque()
-                tasks_to_check.append(starting_task)
-
-                while tasks_to_check:
-                    current_task: OperatorBuilder = tasks_to_check.popleft()
-                    next_tasks = [
-                        self._operator_id_to_builder_obj[next_id]
-                        for next_id in current_task.next_ids
-                    ]
-                    tasks_to_check.extend(next_tasks)
-                    tasks_in_subcycle.extend(next_tasks)
-
-                inlets = operator_to_inlets[starting_task] or None
-                sub_builder = DagBuilder(
-                    tasks_in_subcycle, dag_id_suffix=self.dag_id_suffix, inlets=inlets
-                )
-                sub_builders.append(sub_builder)
+            sub_builders.extend(this_sub_builders)
 
         return sub_builders
 
