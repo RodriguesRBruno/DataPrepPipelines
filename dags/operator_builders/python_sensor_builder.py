@@ -5,6 +5,9 @@ from airflow.sensors.base import PokeReturnValue
 from copy import deepcopy
 from pipeline_state import PipelineState
 from constants import ALWAYS_CONDITION
+from datetime import timedelta
+
+DEFAULT_WAIT_TIME = timedelta(seconds=60)
 
 
 class Condition:
@@ -70,7 +73,7 @@ class PythonSensorBuilder(OperatorBuilder):
             )
             for condition in conditions
         ]
-        self.wait_time = wait_time
+        self.wait_time = wait_time or DEFAULT_WAIT_TIME
         self.running_subject = None
 
     def create_per_subject(self, subject_slash_timepoint: str) -> PythonSensorBuilder:
