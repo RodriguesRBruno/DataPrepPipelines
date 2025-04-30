@@ -4,6 +4,7 @@ from airflow.models import BaseOperator
 from abc import ABC, abstractmethod
 from copy import deepcopy
 from airflow.models import Pool
+from sqlalchemy.exc import OperationalError
 
 
 class OperatorBuilder(ABC):
@@ -33,15 +34,27 @@ class OperatorBuilder(ABC):
         self.from_yaml = from_yaml
 
         if limit is not None:
-            pool_obj = Pool.create_or_update_pool(
-                name=self.operator_id,
-                slots=limit,
-                description=f"Pool to limit execution of tasks with ID {self.operator_id} to up to {limit} parallel executions.",
-                include_deferred=False,
-            )
-            self.pool = pool_obj.pool
+            try:
+                pool_obj = Pool.create_or_update_pool(
+                    name=self.operator_id,
+                    slots=limit,
+                    description=f"Pool to limit execution of tasks with ID {self.operator_id} to up to {limit} parallel executions.",
+                    include_deferred=False,
+                )
+                self.pool = pool_obj.pool
+            except OperationalError:
+                self.pool = None
         else:
             self.pool = None
+
+    def __str__(self):
+        return f"{self.__class__.__name__}(operator_id={self.operator_id})"
+
+    def __repr__(self):
+        return str(self)
+
+    def __hash__(self):
+        return hash(self.operator_id)
 
     @property
     def display_name(self) -> str:
