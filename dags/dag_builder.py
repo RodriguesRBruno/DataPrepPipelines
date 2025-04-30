@@ -51,8 +51,11 @@ class DagBuilder:
 
     @property
     def id_prefix(self):
-        first_task = self.operator_builders[0]
-        final_task = self.operator_builders[-1]
+        from_yaml_builders = [
+            builder for builder in self.operator_builders if builder.from_yaml
+        ]
+        first_task = from_yaml_builders[0]
+        final_task = from_yaml_builders[-1]
         if self._id_prefix is None:
             if final_task.operator_id == first_task.operator_id:
                 self._id_prefix = first_task.operator_id
@@ -145,7 +148,7 @@ class DagBuilder:
         operators_with_multiple_inlets = [
             operator
             for operator in operator_to_upstream_operators
-            if len(operator_to_upstream_operators[operator]) > 1
+            if operator.from_yaml and len(operator_to_upstream_operators[operator]) > 1
         ]
         if not operators_with_multiple_inlets:
             return []
