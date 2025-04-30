@@ -6,6 +6,7 @@ from airflow.models import DAG
 from constants import YESTERDAY
 from collections import deque
 from dataclasses import dataclass
+from collections import defaultdict
 
 
 @dataclass
@@ -23,7 +24,6 @@ class DagBuilder:
         inlets: list[Dataset] = None,
     ):
         self.dag_id_suffix = dag_id_suffix
-        # TODO Assumes tasks are ordered. Improve!
         self._id_prefix = None
         self.operator_builders = operator_builders
         self.dag_id = self.create_legal_dag_id()
@@ -36,6 +36,18 @@ class DagBuilder:
             for operator_builder in self.operator_builders
         }
         self._sub_builders: list[DagBuilder] = self._set_sub_builders()
+
+    @property
+    def num_operators(self) -> int:
+        return len(self.operator_builders)
+
+    def __str__(self):
+        return (
+            f"{self.__class__.__name__}(id={self.dag_id}, num_ops={self.num_operators})"
+        )
+
+    def __repr__(self):
+        return str(self)
 
     @property
     def id_prefix(self):
@@ -106,81 +118,87 @@ class DagBuilder:
         ]
 
         for starting_task_id in starting_task_ids:
-            task_to_modify = None
+            starting_task = self._operator_id_to_builder_obj[starting_task_id]
+            tasks_to_modify = []
             ids_to_check = deque()
             ids_to_check.append(starting_task_id)
-            tasks_in_this_cycle = []
+            tasks_in_this_cycle: list[OperatorBuilder] = []
+            operator_to_upstream_operators: dict[
+                OperatorBuilder, set[OperatorBuilder]
+            ] = defaultdict(set)
             while ids_to_check:
-                task_id = ids_to_check.pop()
-                tasks_in_this_cycle.append(task_id)
+                task_id = ids_to_check.popleft()
                 task_builder = self._operator_id_to_builder_obj[task_id]
-                next_ids_to_modify = []
+                tasks_in_this_cycle.append(task_builder)
+
+                # next_ids_to_modify = []
                 for next_id in task_builder.next_ids:
-                    if next_id in tasks_in_this_cycle:
-                        next_ids_to_modify.append(next_id)
+                    next_task = self._operator_id_to_builder_obj[next_id]
+                    operator_to_upstream_operators[next_task].add(task_builder)
+                    if next_task in tasks_in_this_cycle:
+                        # next_ids_to_modify.append(next_id)
                         continue
                     ids_to_check.append(next_id)
-                if next_ids_to_modify:
-                    task_to_modify = TaskToModify(
-                        task_builder=task_builder, next_ids_to_modify=next_ids_to_modify
-                    )
+                # if next_ids_to_modify:
+                #     task_to_modify = TaskToModify(
+                #         task_builder=task_builder, next_ids_to_modify=next_ids_to_modify
+                #     )
+                #     tasks_to_modify.append(task_to_modify)
 
-            if task_to_modify is not None:
+            # This is a very general condition; will also be True for simple branches like
+            #           / --> Task 2 --\
+            #  Task 1 --|              |--> Task 4
+            #           \ --> Task 3 --/
+            # But DAGs should be constructed in a functional way regardless
+            operators_with_multiple_inlets = [
+                operator
+                for operator in operator_to_upstream_operators
+                if len(operator_to_upstream_operators[operator]) > 1
+            ]
+            if not operators_with_multiple_inlets:
+                continue
 
-                # TODO for now assumes only one task that goes back (ie only one split_task_id or none), later generalize
-                split_task_id = None
-                for next_id in task_to_modify.next_ids_to_modify:
-                    if next_id in starting_task_ids:
-                        outlets = self.inlets
-                    else:
-                        split_task_id = next_id
-                        dataset_id = f"ds_before_{next_id}"
-                        if self.dag_id_suffix:
-                            dataset_id += f"_{self.dag_id_suffix}"
-                        outlets = [Dataset(dataset_id)]
-                    task_to_modify.task_builder.remove_next_id(next_id)
-                    task_to_modify.task_builder.add_outlets(outlets)
+            operator_to_inlets: dict[OperatorBuilder, list[Dataset]] = defaultdict(list)
+            operators_with_added_outlets: list[OperatorBuilder] = []
+            for operator in operators_with_multiple_inlets:
+                new_dataset = self._create_dataset_for_subbuilders(operator)
+                operator_to_inlets[operator].append(new_dataset)
+                tasks_to_modify = operator_to_upstream_operators[operator]
+                for task in tasks_to_modify:
+                    task.remove_next_id(operator.operator_id)
+                    task.add_outlets([new_dataset])
+                    operators_with_added_outlets.append(task)
 
-                if split_task_id:
-                    split_task_index = tasks_in_this_cycle.index(split_task_id)
-                    first_part = tasks_in_this_cycle[:split_task_index]
-                    second_part = tasks_in_this_cycle[split_task_index:]
-                    first_builder_objs = [
-                        self._operator_id_to_builder_obj[operator_id]
-                        for operator_id in first_part
+            starting_tasks = [starting_task, *operators_with_multiple_inlets]
+            for starting_task in starting_tasks:
+                tasks_in_subcycle = [starting_task]
+                tasks_to_check = deque()
+                tasks_to_check.append(starting_task)
+
+                while tasks_to_check:
+                    current_task: OperatorBuilder = tasks_to_check.popleft()
+                    next_tasks = [
+                        self._operator_id_to_builder_obj[next_id]
+                        for next_id in current_task.next_ids
                     ]
-                    second_builder_objs = [
-                        self._operator_id_to_builder_obj[operator_id]
-                        for operator_id in second_part
-                    ]
+                    tasks_to_check.extend(next_tasks)
+                    tasks_in_subcycle.extend(next_tasks)
 
-                    first_builder_objs[-1].outlets = outlets
-                    first_builder_objs[-1].next_ids = []
-                    first_sub_builder = self.__class__(
-                        operator_builders=first_builder_objs,
-                        dag_id_suffix=self.dag_id_suffix,
-                        inlets=self.inlets,
-                    )
+                inlets = operator_to_inlets[starting_task] or None
+                sub_builder = DagBuilder(
+                    tasks_in_subcycle, dag_id_suffix=self.dag_id_suffix, inlets=inlets
+                )
+                sub_builders.append(sub_builder)
 
-                    second_sub_builder = self.__class__(
-                        operator_builders=second_builder_objs,
-                        dag_id_suffix=self.dag_id_suffix,
-                        inlets=outlets,  # outlets from the first builder
-                    )
-
-                    sub_builders.extend([first_sub_builder, second_sub_builder])
-                else:
-                    builder_objs = [
-                        self._operator_id_to_builder_obj[operator_id]
-                        for operator_id in tasks_in_this_cycle
-                    ]
-                    sub_builder = self.__class__(
-                        operator_builders=builder_objs,
-                        dag_id_suffix=self.dag_id_suffix,
-                        inlets=self.inlets,
-                    )
-                    sub_builders.append(sub_builder)
         return sub_builders
+
+    def _create_dataset_for_subbuilders(
+        self, next_operator: OperatorBuilder
+    ) -> Dataset:
+        dataset_name = f"ds_before_{next_operator.operator_id}"
+        if self.dag_id_suffix:
+            dataset_name += f"_{self.dag_id_suffix}"
+        return Dataset(dataset_name)
 
     def build_task_dependices(self) -> DAG:
         if self.inlets:
