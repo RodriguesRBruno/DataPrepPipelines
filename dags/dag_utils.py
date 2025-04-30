@@ -64,7 +64,7 @@ def read_yaml_steps():
     except Exception:
         print(f"Unable to load YAML file {yaml_file}. It will be skipped.")
 
-    return yaml_dag_info["steps"], yaml_dag_info.get("conditions")
+    return yaml_dag_info["steps"], yaml_dag_info.get("conditions", [])
 
 
 def get_per_subject_from_step(step: Optional[dict[str, str]] = None):
