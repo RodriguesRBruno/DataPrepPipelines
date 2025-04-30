@@ -149,7 +149,7 @@ class OperatorBuilder(ABC):
             for condition in conditions:
                 processed_condition = {
                     "condition": condition["condition"],
-                    "target": f"empty_before_{condition['target']}",
+                    "target": f"empty_between_{sensor_id}_and_{condition['target']}",
                 }
                 processed_conditions.append(processed_condition)
 
