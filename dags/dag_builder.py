@@ -1,8 +1,8 @@
 from __future__ import annotations
 from operator_builders.operator_builder import OperatorBuilder
-from airflow.datasets import Dataset
+from airflow.sdk import Asset
+from airflow.models.dag import DAG
 import re
-from airflow.models import DAG
 from constants import YESTERDAY
 from collections import deque
 from dataclasses import dataclass
@@ -21,7 +21,7 @@ class DagBuilder:
         self,
         operator_builders: list[OperatorBuilder],
         dag_id_suffix: str = None,
-        inlets: list[Dataset] = None,
+        inlets: list[Asset] = None,
     ):
         self.dag_id_suffix = dag_id_suffix
         self._id_prefix = None
@@ -154,15 +154,15 @@ class DagBuilder:
             return []
 
         sub_builders = []
-        operator_to_inlets: dict[OperatorBuilder, list[Dataset]] = defaultdict(list)
+        operator_to_inlets: dict[OperatorBuilder, list[Asset]] = defaultdict(list)
         operators_with_added_outlets: list[OperatorBuilder] = []
         for operator in operators_with_multiple_inlets:
-            new_dataset = self._create_dataset_for_subbuilders(operator)
-            operator_to_inlets[operator].append(new_dataset)
+            new_dsset = self._create_asset_for_subbuilders(operator)
+            operator_to_inlets[operator].append(new_dsset)
             tasks_to_modify = operator_to_upstream_operators[operator]
             for task in tasks_to_modify:
                 task.remove_next_id(operator.operator_id)
-                task.add_outlets([new_dataset])
+                task.add_outlets([new_dsset])
                 operators_with_added_outlets.append(task)
 
         starting_tasks = [starting_task, *operators_with_multiple_inlets]
@@ -192,11 +192,11 @@ class DagBuilder:
         By definition, DAGs (Directed Acyclic Graphs) cannot have cycles.
         This method will check for cycles and, if any are found, it will break down the the DAG Builder for this DAG
         into multiple smaller DAG Builders, the sub builders.
-        This is done using Airflow Datasets, to make something similar to:
-        DAG 1: Pipeline Start -> Task 1 -> Task 2 -> Dataset 2
-        DAG 2: Dataset 2 -> Task 3 -> Task 4 ---if some condition---> end
-                                             \--if other condition--> Dataset 2
-        Having Task 4 re-trigger Dataset 2 is equivalent to having Task 4 go into Task 3 if "other condition" is met,
+        This is done using Airflow Assets, to make something similar to:
+        DAG 1: Pipeline Start -> Task 1 -> Task 2 -> Asset 2
+        DAG 2: Asset 2 -> Task 3 -> Task 4 ---if some condition---> end
+                                             \--if other condition--> Asset 2
+        Having Task 4 re-trigger Asset 2 is equivalent to having Task 4 go into Task 3 if "other condition" is met,
         but will not be marked as a cycle in Airflow.
 
         If no cycles are found, sub_builders will be set to an empty list and will not be used.
@@ -225,13 +225,11 @@ class DagBuilder:
 
         return sub_builders
 
-    def _create_dataset_for_subbuilders(
-        self, next_operator: OperatorBuilder
-    ) -> Dataset:
-        dataset_name = f"ds_before_{next_operator.operator_id}"
+    def _create_asset_for_subbuilders(self, next_operator: OperatorBuilder) -> Asset:
+        asset_name = f"ds_before_{next_operator.operator_id}"
         if self.dag_id_suffix:
-            dataset_name += f"_{self.dag_id_suffix}"
-        return Dataset(dataset_name)
+            asset_name += f"_{self.dag_id_suffix}"
+        return Asset(asset_name)
 
     def build_task_dependices(self) -> DAG:
         if self.inlets:

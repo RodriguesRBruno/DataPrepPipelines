@@ -13,7 +13,7 @@ from airflow.models.dagrun import DagRun
 from dag_utils import ReportSummary
 from constants import YESTERDAY
 from datetime import timedelta
-from airflow.utils.state import State
+from airflow.utils.state import TaskInstanceState
 from collections import defaultdict
 from dag_utils import read_yaml_steps
 
@@ -47,7 +47,10 @@ with DAG(
         return all_dags
 
     def _get_most_recent_dag_runs(all_dags: dict[str, DAG]) -> dict[str, DagRun | None]:
-
+        print("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+        test_value = list(all_dags.values())[0]
+        print(f"{test_value=}")
+        print(f"{type(test_value)=}")
         most_recent_dag_runs = {
             dag_id: dag.get_last_dagrun(include_externally_triggered=True)
             for dag_id, dag in all_dags.items()
@@ -84,7 +87,7 @@ with DAG(
             if run_obj is None:
                 task_list = all_dags[dag_id].tasks
                 for task in task_list:
-                    task.state = State.NONE
+                    task.state = None
             else:
                 task_list = run_obj.get_task_instances()
 
@@ -114,7 +117,7 @@ with DAG(
             relevant_df = progress_df[progress_df["Task ID"] == task_id]
 
             task_success_ratio = len(
-                relevant_df[relevant_df["Task Status"] == State.SUCCESS]
+                relevant_df[relevant_df["Task Status"] == TaskInstanceState.SUCCESS]
             ) / len(relevant_df)
             sucess_percentage = round(task_success_ratio * 100, 3)
             for task_name in relevant_df["Task Name"].unique():

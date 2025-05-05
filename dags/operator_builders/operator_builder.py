@@ -1,5 +1,5 @@
 from __future__ import annotations
-from airflow.datasets import Dataset
+from airflow.sdk import Asset
 from airflow.models import BaseOperator
 from abc import ABC, abstractmethod
 from copy import deepcopy
@@ -15,7 +15,7 @@ class OperatorBuilder(ABC):
         operator_id: str,
         next_ids: list[str] | str,
         on_error: str = None,
-        outlets: list[Dataset] = None,
+        outlets: list[Asset] = None,
         limit: int = None,
         from_yaml: bool = True,
         **kwargs,
@@ -79,7 +79,7 @@ class OperatorBuilder(ABC):
         """
         pass
 
-    def add_outlets(self, outlet_list: list[Dataset]):
+    def add_outlets(self, outlet_list: list[Asset]):
         self.outlets.extend(outlet_list)
         self.next_ids = []
 

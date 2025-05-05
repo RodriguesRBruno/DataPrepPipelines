@@ -10,8 +10,7 @@ from constants import (
     AIRFLOW_WORKSPACE_DIR,
     YAML_DIR,
 )
-from copy import deepcopy
-from airflow.datasets import Dataset
+from airflow.sdk import Asset
 
 
 class ReportSummary:
@@ -78,9 +77,9 @@ def make_dag_builder_list(
     previous_per_subject: bool,
     steps_for_dag: list[OperatorBuilder],
     subject_subdirectories: list[str],
-    inlets=list[Dataset],
+    inlets=list[Asset],
     add_outlet_to_final_task: bool = True,
-) -> tuple[list[DagBuilder], list[Dataset]]:
+) -> tuple[list[DagBuilder], list[Asset]]:
     dags_list = []
     outlets = []
     inlets = inlets.copy()
@@ -95,7 +94,7 @@ def make_dag_builder_list(
 
                 if add_outlet_to_final_task and i == len(steps_for_dag) - 1:
                     outlets = [
-                        Dataset(
+                        Asset(
                             f"ds_{new_dag_task.operator_id}_{subject_slash_timepoint}"
                         )
                     ]
@@ -115,7 +114,7 @@ def make_dag_builder_list(
     else:
         final_task = steps_for_dag[-1]
         if add_outlet_to_final_task:
-            outlets = [Dataset(f"ds_{final_task.operator_id}")]
+            outlets = [Asset(f"ds_{final_task.operator_id}")]
             final_task.add_outlets(outlets)
         this_dag = DagBuilder(operator_builders=steps_for_dag, inlets=inlets)
         dags_list.append(this_dag)

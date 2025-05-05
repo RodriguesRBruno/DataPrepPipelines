@@ -8,10 +8,10 @@ The pipelines run on an Airflow Docker image built from this repository. The ima
 To generate this Docker image, run the following command inside the same directory as this README file:
 
 ```shell
-docker build . -t local/pipeline-airflow:0.0.1
+docker build . -t local/pipeline-airflow:1.0.1
 ```
 
-Note the image name used, `local/pipeline-airflow:0.0.1`. This name will be used in later configuration files. If a different name is used, the same name must be used later.
+Note the image name used, `local/pipeline-airflow:1.0.1`. This name will be used in later configuration files. If a different name is used, the same name must be used later.
 
 ## 2. Get the CheXpert Data
 This pipeline example uses the [CheXpert-v1.0-small dataset, available from Kaggle](https://www.kaggle.com/datasets/ashery/chexpert). Unzip the downloaded contents and place them inside the  `pipeline_examples/chexpert/workspace` directory. The final directory structure will be similar to what is shown below:
