@@ -75,11 +75,7 @@ class DagBuilder:
         return legal_id
 
     def create_dag_tags(self):
-        tags = {
-            builder.display_name
-            for builder in self.operator_builders
-            if builder.from_yaml
-        }
+        tags = {builder.tag for builder in self.operator_builders if builder.from_yaml}
         if self.dag_id_suffix is not None:
             tags.add(self.dag_id_suffix)
         return list(tags)

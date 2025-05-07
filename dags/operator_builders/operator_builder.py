@@ -37,7 +37,7 @@ class OperatorBuilder(ABC):
         # TODO add logic to import on_error as a callable
         # Always call this init during subclass inits
         self.operator_id = operator_id
-        self.display_name = self.operator_id.replace("_", " ").title()
+        self.display_name = self.tag = self.operator_id.replace("_", " ").title()
         if not next_ids:
             self.next_ids = []
 
