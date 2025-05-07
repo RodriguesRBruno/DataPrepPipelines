@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING, Any
 from api_client.client import get_client_instance
 
 if TYPE_CHECKING:
-    from api_client.client import BasicAuthClient
+    from api_client.client import AirflowAPIClient
 
 SUMMARIZER_ID = "pipeline_summarizer"
 SUMMARIZER_TAG = "Pipeline Summarizer"
@@ -37,7 +37,7 @@ with DAG(
     tags=[SUMMARIZER_TAG],
 ) as dag:
 
-    def _get_dag_id_to_dag_dict(client: BasicAuthClient) -> dict[str, dict[str, Any]]:
+    def _get_dag_id_to_dag_dict(client: AirflowAPIClient) -> dict[str, dict[str, Any]]:
         all_dags = client.dags.get_all_dags()["dags"]
 
         all_dags = {
@@ -47,7 +47,7 @@ with DAG(
         return all_dags
 
     def _get_most_recent_dag_runs(
-        all_dags: dict[str, dict[str, Any]], client: BasicAuthClient
+        all_dags: dict[str, dict[str, Any]], client: AirflowAPIClient
     ) -> dict[str, dict[str, Any] | None]:
         most_recent_dag_runs = {}
 
@@ -78,7 +78,7 @@ with DAG(
 
     def _get_report_summary(
         most_recent_dag_runs: dict[str, dict[str, Any] | None],
-        client: BasicAuthClient,
+        client: AirflowAPIClient,
     ):
         import pandas as pd  # Import in task to not slow down dag parsing
 
