@@ -37,6 +37,7 @@ class OperatorBuilder(ABC):
         # TODO add logic to import on_error as a callable
         # Always call this init during subclass inits
         self.operator_id = operator_id
+        self.display_name = self.operator_id.replace("_", " ").title()
         if not next_ids:
             self.next_ids = []
 
@@ -60,10 +61,6 @@ class OperatorBuilder(ABC):
 
     def __hash__(self):
         return hash(self.operator_id)
-
-    @property
-    def display_name(self) -> str:
-        return self.operator_id.replace("_", " ").title()
 
     def get_airflow_operator(self) -> BaseOperator:
         base_operator = self._define_base_operator()
@@ -103,7 +100,9 @@ class OperatorBuilder(ABC):
         if necessary.
         In this class, simply returns an unchanged copy. Modify in subclasses as necessary.
         """
-        return deepcopy(self)
+        per_subject_operator = deepcopy(self)
+        per_subject_operator.display_name += f" - {subject_slash_timepoint}"
+        return per_subject_operator
 
     def remove_next_id(self, next_id):
         self.next_ids.remove(next_id)

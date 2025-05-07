@@ -22,7 +22,7 @@ class ContainerOperatorBuilder(OperatorBuilder):
         pass
 
     def create_per_subject(self, subject_slash_timepoint) -> ContainerOperatorBuilder:
-        base_copy = deepcopy(self)
+        base_copy = super().create_per_subject(subject_slash_timepoint)
         extra_command = ["--subject-subdir", subject_slash_timepoint]
         base_copy.command.extend(extra_command)
         return base_copy

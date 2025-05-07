@@ -82,7 +82,7 @@ class PythonSensorBuilder(OperatorBuilder):
         if necessary.
         In this class, simply returns an unchanged copy. Modify in subclasses as necessary.
         """
-        copy_obj = deepcopy(self)
+        copy_obj = super().create_per_subject(subject_slash_timepoint)
         copy_obj.running_subject = subject_slash_timepoint
         return copy_obj
 
