@@ -47,10 +47,6 @@ with DAG(
         return all_dags
 
     def _get_most_recent_dag_runs(all_dags: dict[str, DAG]) -> dict[str, DagRun | None]:
-        print("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
-        test_value = list(all_dags.values())[0]
-        print(f"{test_value=}")
-        print(f"{type(test_value)=}")
         most_recent_dag_runs = {
             dag_id: dag.get_last_dagrun(include_externally_triggered=True)
             for dag_id, dag in all_dags.items()
