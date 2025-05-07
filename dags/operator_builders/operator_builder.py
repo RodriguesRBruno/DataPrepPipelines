@@ -53,18 +53,6 @@ class OperatorBuilder(ABC):
             self.pool_info = None
         else:
             self.pool_info = PoolInfo(_task_id=self.operator_id, slots=limit)
-        if limit is not None and os.getenv("IS_DAG_PROCESSOR"):
-            pool_name = f"pool_{self.operator_id}"
-            airflow_client = get_client_instance()
-            pool_response = airflow_client.pools.create_or_update_pool(
-                name=pool_name,
-                slots=limit,
-                description=f"Pool to limit execution of tasks with ID {self.operator_id} to up to {limit} parallel executions.",
-                include_deferred=False,
-            )
-            self.pool = pool_response.json()["name"]
-        else:
-            self.pool = None
 
     def __str__(self):
         return f"{self.__class__.__name__}(operator_id={self.operator_id})"
@@ -90,7 +78,7 @@ class OperatorBuilder(ABC):
                     description=self.pool_info.description,
                     include_deferred=self.pool_info.include_deferred,
                 )
-                base_operator.pool = pool_response.json()["name"]
+                base_operator.pool = pool_response["name"]
             except ServerResponseError:
                 pass
 
