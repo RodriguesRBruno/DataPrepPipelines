@@ -1,5 +1,5 @@
 from .operator_builder import OperatorBuilder
-from airflow.decorators import task
+from airflow.sdk import task
 from airflow.exceptions import AirflowException
 
 

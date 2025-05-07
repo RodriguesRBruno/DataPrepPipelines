@@ -1,5 +1,5 @@
 from .operator_builder import OperatorBuilder
-from airflow.operators.empty import EmptyOperator
+from airflow.providers.standard.operators.empty import EmptyOperator
 
 
 class EmptyOperatorBuilder(OperatorBuilder):
