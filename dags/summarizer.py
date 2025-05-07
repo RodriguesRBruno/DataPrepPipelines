@@ -8,18 +8,20 @@ participant and assist users that appear to be struggling.
 from __future__ import annotations
 from airflow.decorators import task
 from airflow.models.dag import DAG
-from airflow.models.dagbag import DagBag
-from airflow.models.dagrun import DagRun
 from dag_utils import ReportSummary
 from constants import YESTERDAY
 from datetime import timedelta
 from airflow.utils.state import TaskInstanceState
 from collections import defaultdict
 from dag_utils import read_yaml_steps
+from typing import TYPE_CHECKING, Any
+from api_client.client import get_client_instance
+
+if TYPE_CHECKING:
+    from api_client.client import BasicAuthClient
 
 SUMMARIZER_ID = "pipeline_summarizer"
-SUMMARIZER_TAG = "Pípeline Summarizer"
-AGGREGATE_DAG_TAG = "Aggregate DAG"
+SUMMARIZER_TAG = "Pipeline Summarizer"
 steps_from_yaml, _ = read_yaml_steps()
 ordered_step_ids = [step["id"] for step in steps_from_yaml]
 
@@ -28,29 +30,39 @@ with DAG(
     dag_display_name="Summarizer",
     catchup=False,
     max_active_runs=1,
-    schedule=timedelta(minutes=30),
+    schedule=timedelta(seconds=30),
     start_date=YESTERDAY,
     is_paused_upon_creation=False,
     doc_md="This DAG generates and periodically updates the report_summary.yaml file that is sent to the MedPerf servers.",
     tags=[SUMMARIZER_TAG],
 ) as dag:
 
-    def _get_dags_and_subject_tags() -> tuple[dict[str, DAG], set[str]]:
-        dag_bag: DagBag = DagBag(include_examples=False)
-        relevant_dags: list[DAG] = [
-            dag for dag in dag_bag.dags.values() if dag.dag_id != SUMMARIZER_ID
-        ]
+    def _get_dag_id_to_dag_dict(client: BasicAuthClient) -> dict[str, dict[str, Any]]:
+        all_dags = client.dags.get_all_dags()["dags"]
 
-        all_dags = {dag.dag_id: dag for dag in relevant_dags}
-        all_dags = {dag_id: all_dags[dag_id] for dag_id in sorted(all_dags)}
+        all_dags = {
+            dag["dag_id"]: dag for dag in all_dags if dag["dag_id"] != SUMMARIZER_ID
+        }
 
         return all_dags
 
-    def _get_most_recent_dag_runs(all_dags: dict[str, DAG]) -> dict[str, DagRun | None]:
-        most_recent_dag_runs = {
-            dag_id: dag.get_last_dagrun(include_externally_triggered=True)
-            for dag_id, dag in all_dags.items()
-        }
+    def _get_most_recent_dag_runs(
+        all_dags: dict[str, dict[str, Any]], client: BasicAuthClient
+    ) -> dict[str, dict[str, Any] | None]:
+        most_recent_dag_runs = {}
+
+        for dag_id in all_dags.keys():
+            most_recent_run = client.dag_runs.get_most_recent_dag_run(dag_id=dag_id)[
+                "dag_runs"
+            ]
+            if not most_recent_run:
+                most_recent_run = None
+            else:
+                most_recent_run = most_recent_run[0]
+            print(f"{dag_id=}\n{most_recent_run=}\n\n")
+            most_recent_dag_runs[dag_id] = most_recent_run
+
+        print(f"{most_recent_dag_runs=}")
 
         return most_recent_dag_runs
 
@@ -65,8 +77,8 @@ with DAG(
         return sorted_indices
 
     def _get_report_summary(
-        all_dags: dict[str, DAG],
-        most_recent_dag_runs: dict[str, DagRun | None],
+        most_recent_dag_runs: dict[str, dict[str, Any] | None],
+        client: BasicAuthClient,
     ):
         import pandas as pd  # Import in task to not slow down dag parsing
 
@@ -79,24 +91,25 @@ with DAG(
             }
         )
 
-        for dag_id, run_obj in most_recent_dag_runs.items():
-            if run_obj is None:
-                task_list = all_dags[dag_id].tasks
-                for task in task_list:
-                    task.state = None
+        for dag_id, run_dict in most_recent_dag_runs.items():
+            if run_dict is None:
+                task_list = client.tasks.get_tasks(dag_id=dag_id)["tasks"]
             else:
-                task_list = run_obj.get_task_instances()
+                task_list = client.task_instances.get_task_instances_in_dag_run(
+                    dag_id=dag_id, dag_run_id=run_dict["dag_run_id"]
+                )["task_instances"]
 
-            for task in task_list:
-                task_id = task.task_id
+            print(f"{task_list=}")
+            for task_dict in task_list:
+                task_id = task_dict["task_id"]
                 if task_id not in ordered_step_ids:
                     continue
 
                 update_dict = {
-                    "Task Name": task.task_display_name,
+                    "Task Name": task_dict["task_display_name"],
                     "Task ID": task_id,
                     "DAG ID": dag_id,
-                    "Task Status": task.state,
+                    "Task Status": task_dict.get("state", None),
                 }
                 task_df = pd.DataFrame([update_dict])
                 progress_df = pd.concat([progress_df, task_df])
@@ -134,10 +147,10 @@ with DAG(
 
     @task(task_id="pipeline_summarizer", task_display_name="Pipeline Summarizer")
     def rano_summarizer():
-
-        all_dags = _get_dags_and_subject_tags()
-        most_recent_dag_runs = _get_most_recent_dag_runs(all_dags)
-        report_summary = _get_report_summary(all_dags, most_recent_dag_runs)
+        airflow_client = get_client_instance()
+        all_dags = _get_dag_id_to_dag_dict(airflow_client)
+        most_recent_dag_runs = _get_most_recent_dag_runs(all_dags, airflow_client)
+        report_summary = _get_report_summary(most_recent_dag_runs, airflow_client)
         report_summary.write_yaml()
 
     rano_summarizer()
