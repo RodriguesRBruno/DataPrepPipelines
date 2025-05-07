@@ -95,7 +95,7 @@ def make_dag_builder_list(
                 if add_outlet_to_final_task and i == len(steps_for_dag) - 1:
                     outlets = [
                         Asset(
-                            f"ds_{new_dag_task.operator_id}_{subject_slash_timepoint}"
+                            f"asset_{new_dag_task.operator_id}_{subject_slash_timepoint}"
                         )
                     ]
                     new_dag_task.add_outlets(outlets)
@@ -114,7 +114,7 @@ def make_dag_builder_list(
     else:
         final_task = steps_for_dag[-1]
         if add_outlet_to_final_task:
-            outlets = [Asset(f"ds_{final_task.operator_id}")]
+            outlets = [Asset(f"asset_{final_task.operator_id}")]
             final_task.add_outlets(outlets)
         this_dag = DagBuilder(operator_builders=steps_for_dag, inlets=inlets)
         dags_list.append(this_dag)

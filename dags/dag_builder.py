@@ -226,7 +226,7 @@ class DagBuilder:
         return sub_builders
 
     def _create_asset_for_subbuilders(self, next_operator: OperatorBuilder) -> Asset:
-        asset_name = f"ds_before_{next_operator.operator_id}"
+        asset_name = f"asset_before_{next_operator.operator_id}"
         if self.dag_id_suffix:
             asset_name += f"_{self.dag_id_suffix}"
         return Asset(asset_name)
