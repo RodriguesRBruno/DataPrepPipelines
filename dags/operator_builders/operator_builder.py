@@ -147,7 +147,7 @@ class OperatorBuilder(ABC):
             }  # {'condition_1: {'type': 'function', 'function_name': 'function_name'}, ...}
 
             branching_info: list[dict[str, str]] = id_info.pop("if")
-            sensor_id = f'sensor_from_{kwargs["operator_id"]}'
+            sensor_id = f'conditions_from_{kwargs["operator_id"]}'
             branching_id = f'branch_from_{kwargs["operator_id"]}'
             wait_time = id_info.pop("wait", None)
             default_condition = id_info.pop("else", None)
