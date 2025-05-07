@@ -19,9 +19,7 @@ class PoolInfo:
 
     def __post_init__(self):
         self.name = f"pool_{self._task_id}"
-        self.description = (
-            f"Pool to limit execution of tasks with ID {self._task_id} to up to {self.slots} parallel executions.",
-        )
+        self.description = f"Pool to limit execution of tasks with ID {self._task_id} to up to {self.slots} parallel executions."
 
 
 class OperatorBuilder(ABC):
