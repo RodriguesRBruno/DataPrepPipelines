@@ -13,7 +13,7 @@ from constants import YESTERDAY
 from datetime import timedelta
 from airflow.utils.state import TaskInstanceState
 from collections import defaultdict
-from dag_utils import read_yaml_steps
+from dag_utils import read_yaml_definition
 from typing import TYPE_CHECKING, Any
 from api_client.client import AirflowAPIClient
 from airflow.utils.state import DagRunState
@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 
 SUMMARIZER_ID = "pipeline_summarizer"
 SUMMARIZER_TAG = "Pipeline Summarizer"
-steps_from_yaml, _ = read_yaml_steps()
+steps_from_yaml = read_yaml_definition()["steps"]
 ordered_step_ids = [step["id"] for step in steps_from_yaml]
 
 with DAG(

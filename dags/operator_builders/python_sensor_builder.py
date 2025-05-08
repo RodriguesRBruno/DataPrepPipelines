@@ -6,6 +6,7 @@ from copy import deepcopy
 from pipeline_state import PipelineState
 from constants import ALWAYS_CONDITION
 from datetime import timedelta
+from dag_utils import import_external_python_function
 
 DEFAULT_WAIT_TIME = timedelta(seconds=60)
 
@@ -38,13 +39,9 @@ def evaluate_external_condition(condition: Condition, pipeline_state: PipelineSt
     if condition.condition_id == ALWAYS_CONDITION:
         return True
 
-    import importlib
-
-    condition_module, condition_function = condition.complete_function_name.rsplit(
-        ".", maxsplit=1
+    condition_function_obj = import_external_python_function(
+        condition.complete_function_name
     )
-    imported_module = importlib.import_module(condition_module)
-    condition_function_obj = getattr(imported_module, condition_function)
     print(f"Checking condition {condition.condition_id}...")
     condition_result = condition_function_obj(pipeline_state)
 
@@ -96,7 +93,7 @@ class PythonSensorBuilder(OperatorBuilder):
         )
         def wait_for_conditions(**kwargs):
             pipeline_state = PipelineState(
-                airflow_kwargs=kwargs, running_subject=self.running_subject
+                running_subject=self.running_subject, **kwargs
             )
 
             for condition in self.conditions:

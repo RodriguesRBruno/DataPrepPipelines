@@ -94,9 +94,13 @@ conditions: only include this if at least one condition is defined during the st
   - id: another_condition_id
     type: function
     function_name: python_file_name.other_python_function
+
+per_subject_def: only include this if at least one step has the "per_subject" option set to true
+  type: function. Currently only function definitions are supported.
+  function_name: python_file_name.python_function for a Python function that returns a list of files or directories. Each file/directory in the list must correspond to one subject to split by in steps with "per subject" set to true.
 ```
 
-Examples of conditional steps can be found in the YAML file for the RANO Pipeline located at `pipeline_examples/rano/dags_from_yaml/rano.yaml`.
+Examples of conditional steps and steps split by subject can be found in the YAML file for the RANO Pipeline located at `pipeline_examples/rano/dags_from_yaml/rano.yaml`.
 
 
 ### 5.1 Types of Steps
