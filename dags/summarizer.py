@@ -15,12 +15,12 @@ from constants import YESTERDAY
 from datetime import timedelta
 from airflow.utils.state import State
 from collections import defaultdict
-from dag_utils import read_yaml_steps
+from dag_utils import read_yaml_definition
 
 SUMMARIZER_ID = "pipeline_summarizer"
 SUMMARIZER_TAG = "Pípeline Summarizer"
 AGGREGATE_DAG_TAG = "Aggregate DAG"
-steps_from_yaml, _ = read_yaml_steps()
+steps_from_yaml = read_yaml_definition()["steps"]
 ordered_step_ids = [step["id"] for step in steps_from_yaml]
 
 with DAG(

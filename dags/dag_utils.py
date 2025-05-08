@@ -1,7 +1,7 @@
 import os
 import re
 import yaml
-from typing import Literal, Any, Optional
+from typing import Literal, Any, Optional, Union
 from operator_builders.operator_builder import OperatorBuilder
 from operator_factory import operator_factory
 from dag_builder import DagBuilder
@@ -45,26 +45,26 @@ class ReportSummary:
             )
 
 
-def read_yaml_steps():
-    yaml_dag_files = [yaml_file for yaml_file in os.listdir(YAML_DIR)]
-    yaml_dag_files = [os.path.join(YAML_DIR, yaml_file) for yaml_file in yaml_dag_files]
-    yaml_dag_files = [
+def read_yaml_definition():
+    yaml_files = [yaml_file for yaml_file in os.listdir(YAML_DIR)]
+    yaml_files = [os.path.join(YAML_DIR, yaml_file) for yaml_file in yaml_files]
+    yaml_files = [
         yaml_file
-        for yaml_file in yaml_dag_files
+        for yaml_file in yaml_files
         if os.path.isfile(yaml_file)
         and (yaml_file.endswith(".yaml") or yaml_file.endswith(".yml"))
     ]
 
-    yaml_file = yaml_dag_files[0]
+    yaml_file = yaml_files[0]
     try:
         with open(yaml_file, "r") as f:
             raw_content = f.read()
             expanded_content = os.path.expandvars(raw_content)
-            yaml_dag_info = yaml.safe_load(expanded_content)
+            yaml_info = yaml.safe_load(expanded_content)
     except Exception:
         print(f"Unable to load YAML file {yaml_file}. It will be skipped.")
 
-    return yaml_dag_info["steps"], yaml_dag_info.get("conditions", [])
+    return yaml_info
 
 
 def get_per_subject_from_step(step: Optional[dict[str, str]] = None):
@@ -124,9 +124,13 @@ def make_dag_builder_list(
 
 
 def map_operators_from_yaml(
-    steps_from_yaml: list[dict[str, str]], conditions_from_yaml: list[dict[str, str]]
+    yaml_info: dict[str, Union[list[dict[str, str]], dict[str, str]]],
 ) -> list[DagBuilder]:
-    subject_subdirectories = read_subject_directories()
+    steps_from_yaml = yaml_info["steps"]
+    conditions_from_yaml = yaml_info.get("conditions", [])
+    per_subject_definition = yaml_info.get("per_subject_def", {})
+
+    subject_subdirectories = read_subject_directories(per_subject_definition)
     dags_list = []
     steps_for_dag: list[OperatorBuilder] = []
     previous_outlets = []
@@ -178,22 +182,32 @@ def add_to_dags_dict(
     dags_dict[dag_id] = steps_for_dag
 
 
-def read_subject_directories():
+def read_subject_directories(per_subject_definition):
+    from pipeline_state import PipelineState
 
-    subject_slash_timepoint_list = []
+    if not per_subject_definition:
+        return []
 
-    for subject_id_dir in os.listdir(AIRFLOW_INPUT_DATA_DIR):
-        subject_complete_dir = os.path.join(AIRFLOW_INPUT_DATA_DIR, subject_id_dir)
+    per_subjection_function_name = per_subject_definition["function_name"]
+    per_subject_function_obj = import_external_python_function(
+        per_subjection_function_name
+    )
+    subject_list = per_subject_function_obj(PipelineState())
+    return subject_list
 
-        if not os.path.isdir(subject_complete_dir):
-            continue
 
-        for timepoint_dir in os.listdir(subject_complete_dir):
-            subject_slash_timepoint_list.append(
-                os.path.join(subject_id_dir, timepoint_dir)
-            )
+def import_external_python_function(function_path: str):
+    import importlib
+    import sys
 
-    return subject_slash_timepoint_list
+    sys.path.append(
+        "/Users/brunorodrigues/MLCommons/DataPrepPipelines/pipeline_examples/rano/dags_from_yaml"
+    )
+    condition_module, condition_function = function_path.rsplit(".", maxsplit=1)
+    imported_module = importlib.import_module(condition_module)
+    function_obj = getattr(imported_module, condition_function)
+
+    return function_obj
 
 
 def create_legal_dag_id(subject_slash_timepoint, replace_char="_"):
