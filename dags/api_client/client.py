@@ -7,28 +7,26 @@ from http import HTTPStatus
 import time
 import httpx
 
-
-def get_client_instance():
-    AIRFLOW_API_URL = os.getenv(
-        "AIRFLOW_API_URL", "http://airflow-apiserver:8080/api/v2"
-    )
-    return AirflowAPIClient(AIRFLOW_API_URL)
+AIRFLOW_API_URL = os.getenv("AIRFLOW_API_URL", "http://airflow-apiserver:8080/api/v2")
 
 
 class BearerAuth(AirflowBearerAuth):
     def __init__(
-        self, token: str, expires_at: Optional[float] = None, leeway: float = None
+        self,
+        token: str,
+        expires_at: Optional[float] = None,
+        leeway_seconds: float = None,
     ):
         if expires_at is None:
-            thirty_minutes = 30 * 60
+            twenty_four_hours = 60 * 60 * 24  # Default duration from airflow
             token_duration = os.getenv(
-                "AIRFLOW__API_AUTH__JWT_EXPIRATION_TIME", thirty_minutes
+                "AIRFLOW__API_AUTH__JWT_EXPIRATION_TIME", twenty_four_hours
             )
 
-            leeway = leeway or 30
+            leeway_seconds = leeway_seconds or 30
             now = time.time()
-            # expires_at = now + token_duration + leeway
-            expires_at = now + 1
+            expires_at = now + token_duration + leeway_seconds
+
         self.expires_at = expires_at
         super().__init__(token=token)
 
@@ -39,12 +37,12 @@ class BearerAuth(AirflowBearerAuth):
 
 class AirflowAPIClient(httpx.Client):
 
-    def __init__(self, base_url: Optional[str], **kwargs):
-        token = self._get_token(base_url)
+    def __init__(self, **kwargs):
+        token = self._get_token(AIRFLOW_API_URL)
         auth = BearerAuth(token)
         event_hooks = {"request": [self.renew_token]}
         super().__init__(
-            base_url=base_url, auth=auth, event_hooks=event_hooks, **kwargs
+            base_url=AIRFLOW_API_URL, auth=auth, event_hooks=event_hooks, **kwargs
         )
 
     def _get_token(self, base_url):

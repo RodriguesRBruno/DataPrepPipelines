@@ -3,7 +3,7 @@ from airflow.sdk import Asset, BaseOperator
 from abc import ABC, abstractmethod
 from copy import deepcopy
 from constants import ALWAYS_CONDITION
-from api_client.client import get_client_instance
+from api_client.client import AirflowAPIClient
 from airflow.sdk.api.client import ServerResponseError
 import os
 from dataclasses import dataclass, field
@@ -65,14 +65,15 @@ class OperatorBuilder(ABC):
     def get_airflow_operator(self) -> BaseOperator:
         base_operator = self._define_base_operator()
         if self.pool_info is not None and os.getenv("IS_DAG_PROCESSOR"):
-            airflow_client = get_client_instance()
+
             try:
-                pool_response = airflow_client.pools.create_or_update_pool(
-                    name=self.pool_info.name,
-                    slots=self.pool_info.slots,
-                    description=self.pool_info.description,
-                    include_deferred=self.pool_info.include_deferred,
-                )
+                with AirflowAPIClient() as airflow_client:
+                    pool_response = airflow_client.pools.create_or_update_pool(
+                        name=self.pool_info.name,
+                        slots=self.pool_info.slots,
+                        description=self.pool_info.description,
+                        include_deferred=self.pool_info.include_deferred,
+                    )
                 base_operator.pool = pool_response["name"]
             except ServerResponseError:
                 pass

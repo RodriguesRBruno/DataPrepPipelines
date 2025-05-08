@@ -15,7 +15,7 @@ from airflow.utils.state import TaskInstanceState
 from collections import defaultdict
 from dag_utils import read_yaml_steps
 from typing import TYPE_CHECKING, Any
-from api_client.client import get_client_instance
+from api_client.client import AirflowAPIClient
 
 if TYPE_CHECKING:
     from api_client.client import AirflowAPIClient
@@ -147,10 +147,10 @@ with DAG(
 
     @task(task_id="pipeline_summarizer", task_display_name="Pipeline Summarizer")
     def rano_summarizer():
-        airflow_client = get_client_instance()
-        all_dags = _get_dag_id_to_dag_dict(airflow_client)
-        most_recent_dag_runs = _get_most_recent_dag_runs(all_dags, airflow_client)
-        report_summary = _get_report_summary(most_recent_dag_runs, airflow_client)
+        with AirflowAPIClient() as airflow_client:
+            all_dags = _get_dag_id_to_dag_dict(airflow_client)
+            most_recent_dag_runs = _get_most_recent_dag_runs(all_dags, airflow_client)
+            report_summary = _get_report_summary(most_recent_dag_runs, airflow_client)
         report_summary.write_yaml()
 
     rano_summarizer()
