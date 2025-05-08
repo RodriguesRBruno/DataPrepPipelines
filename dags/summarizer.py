@@ -16,6 +16,7 @@ from collections import defaultdict
 from dag_utils import read_yaml_steps
 from typing import TYPE_CHECKING, Any
 from api_client.client import AirflowAPIClient
+from airflow.utils.state import DagRunState
 
 if TYPE_CHECKING:
     from api_client.client import AirflowAPIClient
@@ -91,11 +92,12 @@ with DAG(
         for dag_id, run_dict in most_recent_dag_runs.items():
             if run_dict is None:
                 task_list = client.tasks.get_tasks(dag_id=dag_id)["tasks"]
+                run_state = None
             else:
                 task_list = client.task_instances.get_task_instances_in_dag_run(
                     dag_id=dag_id, dag_run_id=run_dict["dag_run_id"]
                 )["task_instances"]
-
+                run_state = run_dict["state"]
             for task_dict in task_list:
                 task_id = task_dict["task_id"]
                 if task_id not in ordered_step_ids:
@@ -106,6 +108,7 @@ with DAG(
                     "Task ID": task_id,
                     "DAG ID": dag_id,
                     "Task Status": task_dict.get("state", None),
+                    "DAG Run State": run_state,
                 }
                 task_df = pd.DataFrame([update_dict])
                 progress_df = pd.concat([progress_df, task_df])
@@ -129,11 +132,13 @@ with DAG(
 
         summary_dict = dict(summary_dict)
 
-        execution_status = "done"
-        for task_name, success_percentage in summary_dict.items():
-            if success_percentage < 100.0:
-                execution_status = "running"
-                break
+        if all(
+            dag_run_state == DagRunState.SUCCESS
+            for dag_run_state in relevant_df["DAG Run State"]
+        ):
+            execution_status = "done"
+        else:
+            execution_status = "running"
 
         report_summary = ReportSummary(
             execution_status=execution_status, progress_dict=summary_dict
