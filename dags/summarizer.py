@@ -27,7 +27,7 @@ ordered_step_ids = [step["id"] for step in steps_from_yaml]
 
 with DAG(
     dag_id=SUMMARIZER_ID,
-    dag_display_name="Summarizer",
+    dag_display_name="Summarizer DAG",
     catchup=False,
     max_active_runs=1,
     schedule=timedelta(minutes=30),
@@ -59,10 +59,7 @@ with DAG(
                 most_recent_run = None
             else:
                 most_recent_run = most_recent_run[0]
-            print(f"{dag_id=}\n{most_recent_run=}\n\n")
             most_recent_dag_runs[dag_id] = most_recent_run
-
-        print(f"{most_recent_dag_runs=}")
 
         return most_recent_dag_runs
 
@@ -99,7 +96,6 @@ with DAG(
                     dag_id=dag_id, dag_run_id=run_dict["dag_run_id"]
                 )["task_instances"]
 
-            print(f"{task_list=}")
             for task_dict in task_list:
                 task_id = task_dict["task_id"]
                 if task_id not in ordered_step_ids:
@@ -124,13 +120,12 @@ with DAG(
         for task_id in all_task_ids:
 
             relevant_df = progress_df[progress_df["Task ID"] == task_id]
-
             task_success_ratio = len(
                 relevant_df[relevant_df["Task Status"] == TaskInstanceState.SUCCESS]
             ) / len(relevant_df)
-            sucess_percentage = round(task_success_ratio * 100, 3)
-            for task_name in relevant_df["Task Name"].unique():
-                summary_dict[task_name] = sucess_percentage
+            success_percentage = round(task_success_ratio * 100, 3)
+            task_name = task_id.replace("_", " ").title()
+            summary_dict[task_name] = success_percentage
 
         summary_dict = dict(summary_dict)
 
