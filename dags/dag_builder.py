@@ -151,6 +151,7 @@ class DagBuilder:
 
         sub_builders = []
         operator_to_inlets: dict[OperatorBuilder, list[Asset]] = defaultdict(list)
+        operator_to_inlets[starting_task].extend(self.inlets)
         operators_with_added_outlets: list[OperatorBuilder] = []
         for operator in operators_with_multiple_inlets:
             new_dsset = self._create_asset_for_subbuilders(operator)
