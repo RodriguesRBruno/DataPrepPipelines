@@ -1,6 +1,5 @@
 from .python_sensor_builder import PythonSensorBuilder
 from .operator_builder import OperatorBuilder
-from .empty_operator_builder import EmptyOperatorBuilder
 from airflow.decorators import task
 from airflow.models.taskinstance import TaskInstance
 

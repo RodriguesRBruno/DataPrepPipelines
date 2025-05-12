@@ -153,6 +153,7 @@ class YamlParser:
         original_id_to_partition_to_partitioned_id = defaultdict(dict)
         for step in raw_steps:
             original_id = step["id"]
+            step["conditions_definitions"] = self._raw_conditions
             if step.get("per_subject"):
                 for subject_partition in subject_partitions:
                     partitioned_step = {k: v for k, v in step.items()}
@@ -198,10 +199,45 @@ class YamlParser:
 
         for step_id, step in step_id_to_expanded_step.items():
             upstream_ids = list(next_id_to_upstream_ids[step_id])
-            step["previous"] = upstream_ids
+            if upstream_ids:
+                this_step_inlets = []
+                if step["partition"] is None:
+                    for upstream_id in upstream_ids:
+                        upstream_dict = step_id_to_expanded_step[upstream_id]
+                        upstream_partition = upstream_dict["partition"]
+                        if upstream_partition:
+                            new_inlet = create_legal_dag_id(
+                                f"{step_id}_{upstream_partition}"
+                            )
+                            this_step_inlets.append(new_inlet)
+                            self._update_next_with_new_partition(
+                                upstream_dict, step_id, new_inlet
+                            )
+                if not this_step_inlets:
+                    this_step_inlets = [step_id]
+                step["inlets"] = this_step_inlets
+            else:
+                step["inlets"] = []
 
         expanded_steps = list(step_id_to_expanded_step.values())
         return expanded_steps
+
+    def _update_next_with_new_partition(self, original_dict, original_next, new_next):
+        next_field = original_dict["next"]
+        if isinstance(next_field, list):
+            next_field = [
+                item if item != original_next else new_next for item in next_field
+            ]
+        else:
+            if_fields = next_field["if"]
+            if_fields = [
+                item if item != original_next else new_next for item in if_fields
+            ]
+            default_fields = next_field["else"]
+            default_fields = [
+                item if item != original_next else new_next for item in default_fields
+            ]
+        original_dict["next"] = next_field
 
     def map_dag_builders_from_yaml(self) -> list[DagBuilder]:
 

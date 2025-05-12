@@ -21,6 +21,7 @@ class PoolInfo:
 
 
 class OperatorBuilder(ABC):
+    CREATED_POOLS = set()
 
     def __init__(
         self,
@@ -38,10 +39,13 @@ class OperatorBuilder(ABC):
         self.operator_id = operator_id
         self.raw_id = raw_id
         self.display_name = self.raw_id.replace("_", " ").title()
-        if not next_ids:
-            self.next_ids = []
 
-        self.outlets = self._make_outlets(make_outlet)
+        if make_outlet:
+            self.next_ids = []
+            self.outlets = self._make_outlets(next_ids)
+        else:
+            self.next_ids = next_ids or []
+            self.outlets = None
 
         self.from_yaml = from_yaml
         if limit is None:
@@ -64,28 +68,31 @@ class OperatorBuilder(ABC):
     def __hash__(self):
         return hash(self.operator_id)
 
-    def _make_outlets(self, make_outlet):
-        if make_outlet:
-            outlets = [Asset(self.operator_id)]
+    def _make_outlets(self, next_ids):
+        if next_ids is not None:
+            if isinstance(next_ids, str):
+                next_ids = [next_ids]
+            outlets = [Asset(next_id) for next_id in next_ids]
         else:
             outlets = []
         return outlets
 
     def get_airflow_operator(self) -> BaseOperator:
         base_operator = self._define_base_operator()
-        if self.pool_info is not None and os.getenv("IS_DAG_PROCESSOR"):
-
-            try:
-                with AirflowAPIClient() as airflow_client:
-                    pool_response = airflow_client.pools.create_or_update_pool(
-                        name=self.pool_info.name,
-                        slots=self.pool_info.slots,
-                        description=self.pool_info.description,
-                        include_deferred=self.pool_info.include_deferred,
-                    )
-                base_operator.pool = pool_response["name"]
-            except ServerResponseError:
-                pass
+        if (
+            self.pool_info is not None
+            and os.getenv("IS_DAG_PROCESSOR")
+            and self.pool_info.name not in OperatorBuilder.CREATED_POOLS
+        ):
+            with AirflowAPIClient() as airflow_client:
+                pool_response = airflow_client.pools.create_or_update_pool(
+                    name=self.pool_info.name,
+                    slots=self.pool_info.slots,
+                    description=self.pool_info.description,
+                    include_deferred=self.pool_info.include_deferred,
+                )
+            base_operator.pool = pool_response["name"]
+            OperatorBuilder.CREATED_POOLS.add(pool_response["name"])
 
         if self.outlets:
             base_operator.outlets = self.outlets
@@ -112,7 +119,7 @@ class OperatorBuilder(ABC):
         kwargs["operator_id"] = kwargs.pop("id", None)
 
         id_info = kwargs.pop("next", [])
-
+        make_outlet_for_main_operator = True
         if isinstance(id_info, dict):
             # If we have a branching condition in YAML, we return three operators:
             # OperatorFromYAML -> PythonSensorOperator -> PythonBranchOperator -> EmptyOperator -> NextOperatorFromYAML
@@ -129,6 +136,7 @@ class OperatorBuilder(ABC):
             from .python_sensor_builder import PythonSensorBuilder
             from .empty_operator_builder import EmptyOperatorBuilder
 
+            make_outlet_for_main_operator = False
             conditions_definitions = kwargs.pop(
                 "conditions_definitions", []
             )  # [{'id': 'condition_1', 'type': 'function', 'function_name': 'function_name'}...]
@@ -140,41 +148,57 @@ class OperatorBuilder(ABC):
             }  # {'condition_1: {'type': 'function', 'function_name': 'function_name'}, ...}
 
             branching_info: list[dict[str, str]] = id_info.pop("if")
-            sensor_id = f'conditions_from_{kwargs["operator_id"]}'
-            branching_id = f'branch_from_{kwargs["operator_id"]}'
+            partition = kwargs.get("partition")
+            operator_id = kwargs["operator_id"]
+            operator_raw_id = kwargs["raw_id"]
+            sensor_id = f"conditions_{operator_id}"
+            branching_id = f"branch_{operator_id}"
             wait_time = id_info.pop("wait", None)
-            default_condition = id_info.pop("else", None)
-            kwargs["next_ids"] = sensor_id
+            default_conditions = id_info.pop("else", None)
+            kwargs["next_ids"] = [sensor_id]
 
             conditions = branching_info
-            if default_condition and default_condition != kwargs["operator_id"]:
-                conditions.append(
-                    {"condition": ALWAYS_CONDITION, "target": default_condition}
-                )
+            for default_condition in default_conditions:
+                if default_condition and default_condition != kwargs["operator_id"]:
+                    conditions.append(
+                        {"condition": ALWAYS_CONDITION, "target": default_condition}
+                    )
             processed_conditions = []
             for condition in conditions:
-                processed_condition = {
-                    "condition": condition["condition"],
-                    "target": f"empty_between_{sensor_id}_and_{condition['target']}",
-                }
-                processed_conditions.append(processed_condition)
+                temp_conditions = [
+                    {
+                        "condition": condition["condition"],
+                        "target": f"empty_{operator_id}_{target}",
+                    }
+                    for target in condition["target"]
+                ]
+                processed_conditions.extend(temp_conditions)
 
             empty_ids = [condition["target"] for condition in processed_conditions]
             ids_after_empty = [condition["target"] for condition in conditions]
 
             sensor_operator = PythonSensorBuilder(
                 conditions=processed_conditions,
+                raw_id=f"sensor_{operator_raw_id}",
                 wait_time=wait_time,
                 operator_id=sensor_id,
                 next_ids=[branching_id],
                 conditions_definitions=conditions_definitions,
                 from_yaml=False,
                 make_outlet=False,
+                partition=partition,
             )
 
             # TODO this will break!
             empty_operators = [
-                EmptyOperatorBuilder(operator_id=empty_id, from_yaml=False)
+                EmptyOperatorBuilder(
+                    operator_id=empty_id,
+                    raw_id=empty_id,
+                    from_yaml=False,
+                    next_ids=next_id,
+                    partition=partition,
+                    make_outlet=True,
+                )
                 for empty_id, next_id in zip(empty_ids, ids_after_empty)
             ]
 
@@ -182,11 +206,14 @@ class OperatorBuilder(ABC):
                 next_ids=[empty_id for empty_id in empty_ids],
                 previous_sensor=sensor_operator,
                 operator_id=branching_id,
+                raw_id=f"branch_{operator_raw_id}",
                 from_yaml=False,
                 make_outlet=False,
             )
             operator_list.extend([sensor_operator, branch_operator, *empty_operators])
+        else:
+            kwargs["next_ids"] = id_info
 
-        this_operator = cls(**kwargs)
+        this_operator = cls(**kwargs, make_outlet=make_outlet_for_main_operator)
         operator_list = [this_operator, *operator_list]
         return operator_list

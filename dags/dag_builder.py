@@ -8,7 +8,7 @@ from operator_factory import operator_factory
 class DagBuilder:
 
     def __init__(self, expanded_step: dict[str, Any]):
-        raw_inlets = expanded_step.pop("previous", [])
+        raw_inlets = expanded_step.pop("inlets", [])
         self.builder_id = expanded_step["id"]
         self.inlets = [Asset(raw_inlet) for raw_inlet in raw_inlets]
         self.partition = expanded_step.get("partition", None)
@@ -17,6 +17,16 @@ class DagBuilder:
             operator.operator_id: operator for operator in self.operator_builders
         }
         self._generated_operators = {}
+
+    @property
+    def num_operators(self) -> int:
+        return len(self.operator_builders)
+
+    def __str__(self):
+        return f"{self.__class__.__name__}(id={self.builder_id}, num_ops={self.num_operators})"
+
+    def __repr__(self):
+        return str(self)
 
     @property
     def display_name(self):
@@ -56,13 +66,8 @@ class DagBuilder:
         operator_id,
     ):
         if operator_id not in self._generated_operators:
-            try:
-                builder_for_this_operator = self._operator_id_to_builder_obj[
-                    operator_id
-                ]
-                self._generated_operators[operator_id] = (
-                    builder_for_this_operator.get_airflow_operator()
-                )
-                return self._generated_operators[operator_id]
-            except KeyError:
-                return None
+            builder_for_this_operator = self._operator_id_to_builder_obj[operator_id]
+            self._generated_operators[operator_id] = (
+                builder_for_this_operator.get_airflow_operator()
+            )
+        return self._generated_operators[operator_id]
