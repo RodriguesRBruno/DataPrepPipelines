@@ -16,6 +16,7 @@ from yaml_parser.yaml_parser import YamlParser
 from typing import TYPE_CHECKING, Any
 from api_client.client import AirflowAPIClient
 from airflow.utils.state import DagRunState
+from collections import defaultdict
 
 if TYPE_CHECKING:
     from api_client.client import AirflowAPIClient
