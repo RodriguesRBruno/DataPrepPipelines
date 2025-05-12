@@ -15,12 +15,16 @@ class DockerOperatorBuilder(ContainerOperatorBuilder):
         return docker_mounts
 
     def _define_base_operator(self) -> DockerOperator:
+
+        command = self._get_command()
+
         return DockerOperator(
             image=self.image,
-            command=self.command,
+            command=command,
             mounts=self.mounts,
             task_id=self.operator_id,
             task_display_name=self.display_name,
             auto_remove="success",
             mount_tmp_dir=False,
+            outlets=self.outlets,
         )

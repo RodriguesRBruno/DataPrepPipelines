@@ -12,11 +12,13 @@ class SingularityOperatorBuilder(ContainerOperatorBuilder):
         return mounts
 
     def _define_base_operator(self) -> SingularityOperator:
+        command = self._get_command()
         return SingularityOperator(
             image=self.image,
-            command=self.command,
+            command=command,
             volumes=self.mounts,
             task_id=self.operator_id,
             task_display_name=self.display_name,
             auto_remove=True,
+            outlets=self.outlets,
         )

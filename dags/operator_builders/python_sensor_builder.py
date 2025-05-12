@@ -71,17 +71,6 @@ class PythonSensorBuilder(OperatorBuilder):
             for condition in conditions
         ]
         self.wait_time = wait_time or DEFAULT_WAIT_TIME
-        self.running_subject = None
-
-    def create_per_subject(self, subject_slash_timepoint: str) -> PythonSensorBuilder:
-        """
-        Returns a copy of this object with modifications necessary to run on a per-subject basis,
-        if necessary.
-        In this class, simply returns an unchanged copy. Modify in subclasses as necessary.
-        """
-        copy_obj = super().create_per_subject(subject_slash_timepoint)
-        copy_obj.running_subject = subject_slash_timepoint
-        return copy_obj
 
     def _define_base_operator(self):
 
@@ -90,11 +79,10 @@ class PythonSensorBuilder(OperatorBuilder):
             mode="reschedule",
             task_id=self.operator_id,
             task_display_name=self.display_name,
+            outlets=self.outlets,
         )
         def wait_for_conditions(**kwargs):
-            pipeline_state = PipelineState(
-                running_subject=self.running_subject, **kwargs
-            )
+            pipeline_state = PipelineState(running_subject=self.partition, **kwargs)
 
             for condition in self.conditions:
                 if evaluate_external_condition(condition, pipeline_state):

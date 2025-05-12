@@ -11,15 +11,13 @@ from dataclasses import dataclass, field
 
 @dataclass
 class PoolInfo:
-    _task_id: str
-    name: str = field(init=False)
+    name: str
     slots: int
     include_deferred: bool = False
     description: str = field(init=False)
 
     def __post_init__(self):
-        self.name = f"pool_{self._task_id}"
-        self.description = f"Pool to limit execution of tasks with ID {self._task_id} to up to {self.slots} parallel executions."
+        self.description = f"Pool to limit execution of tasks with ID {self.name} to up to {self.slots} parallel executions."
 
 
 class OperatorBuilder(ABC):
@@ -27,31 +25,35 @@ class OperatorBuilder(ABC):
     def __init__(
         self,
         operator_id: str,
-        next_ids: list[str] | str,
-        on_error: str = None,
-        outlets: list[Asset] = None,
+        raw_id: str,
+        next_ids: list[str] | str = None,
         limit: int = None,
         from_yaml: bool = True,
+        make_outlet: bool = True,
+        on_error: str = None,
         **kwargs,
     ):
         # TODO add logic to import on_error as a callable
         # Always call this init during subclass inits
         self.operator_id = operator_id
-        self.display_name = self.tag = self.operator_id.replace("_", " ").title()
+        self.raw_id = raw_id
+        self.display_name = self.raw_id.replace("_", " ").title()
         if not next_ids:
             self.next_ids = []
 
-        elif isinstance(next_ids, str):
-            self.next_ids = [next_ids]
-        else:
-            self.next_ids = next_ids
-        self.outlets = outlets or []
+        self.outlets = self._make_outlets(make_outlet)
 
         self.from_yaml = from_yaml
         if limit is None:
             self.pool_info = None
         else:
-            self.pool_info = PoolInfo(_task_id=self.operator_id, slots=limit)
+            self.pool_info = PoolInfo(name=self.raw_id, slots=limit)
+
+        self.partition = kwargs.get("partition")
+        self.tags = [self.raw_id]
+        if self.partition:
+            self.tags.append(self.partition)
+            self.display_name += f" - {self.partition}"
 
     def __str__(self):
         return f"{self.__class__.__name__}(operator_id={self.operator_id})"
@@ -61,6 +63,13 @@ class OperatorBuilder(ABC):
 
     def __hash__(self):
         return hash(self.operator_id)
+
+    def _make_outlets(self, make_outlet):
+        if make_outlet:
+            outlets = [Asset(self.operator_id)]
+        else:
+            outlets = []
+        return outlets
 
     def get_airflow_operator(self) -> BaseOperator:
         base_operator = self._define_base_operator()
@@ -91,25 +100,8 @@ class OperatorBuilder(ABC):
         """
         pass
 
-    def add_outlets(self, outlet_list: list[Asset]):
-        self.outlets.extend(outlet_list)
-        self.next_ids = []
-
-    def create_per_subject(self, subject_slash_timepoint: str) -> OperatorBuilder:
-        """
-        Returns a copy of this object with modifications necessary to run on a per-subject basis,
-        if necessary.
-        In this class, simply returns an unchanged copy. Modify in subclasses as necessary.
-        """
-        per_subject_operator = deepcopy(self)
-        per_subject_operator.display_name += f" - {subject_slash_timepoint}"
-        return per_subject_operator
-
-    def remove_next_id(self, next_id):
-        self.next_ids.remove(next_id)
-
     @classmethod
-    def build_operator_list(cls, **kwargs):
+    def build_operator_list(cls, **kwargs) -> list[OperatorBuilder]:
         """
         Helper method to build a list of required Operators for a DAG Builder.
         Usually will return a list with a single element that is the desired operator
@@ -138,7 +130,7 @@ class OperatorBuilder(ABC):
             from .empty_operator_builder import EmptyOperatorBuilder
 
             conditions_definitions = kwargs.pop(
-                "conditions_definitions",
+                "conditions_definitions", []
             )  # [{'id': 'condition_1', 'type': 'function', 'function_name': 'function_name'}...]
             conditions_definitions = {
                 condition["id"]: {
@@ -177,12 +169,12 @@ class OperatorBuilder(ABC):
                 next_ids=[branching_id],
                 conditions_definitions=conditions_definitions,
                 from_yaml=False,
+                make_outlet=False,
             )
 
+            # TODO this will break!
             empty_operators = [
-                EmptyOperatorBuilder(
-                    operator_id=empty_id, next_ids=[next_id], from_yaml=False
-                )
+                EmptyOperatorBuilder(operator_id=empty_id, from_yaml=False)
                 for empty_id, next_id in zip(empty_ids, ids_after_empty)
             ]
 
@@ -191,11 +183,10 @@ class OperatorBuilder(ABC):
                 previous_sensor=sensor_operator,
                 operator_id=branching_id,
                 from_yaml=False,
+                make_outlet=False,
             )
             operator_list.extend([sensor_operator, branch_operator, *empty_operators])
-        else:
-            kwargs["next_ids"] = id_info
 
         this_operator = cls(**kwargs)
-        operator_list.append(this_operator)
+        operator_list = [this_operator, *operator_list]
         return operator_list

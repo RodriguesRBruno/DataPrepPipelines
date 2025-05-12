@@ -9,4 +9,5 @@ class EmptyOperatorBuilder(OperatorBuilder):
         return EmptyOperator(
             task_id=self.operator_id,
             task_display_name=self.display_name,
+            outlets=self.outlets,
         )
