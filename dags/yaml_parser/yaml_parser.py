@@ -7,6 +7,7 @@ from collections import defaultdict
 from airflow.sdk import DAG
 from dag_utils import create_legal_dag_id
 from dag_builder import DagBuilder
+from copy import deepcopy
 
 
 class YamlParser:
@@ -63,7 +64,7 @@ class YamlParser:
         subject_partition_list = per_subject_function_obj(PipelineState())
         return subject_partition_list
 
-    def _get_next_id_from_raw_step(self, raw_step):
+    def _get_next_id_from_expanded_step(self, raw_step):
         next_field = raw_step.get("next")
         if next_field is None:
             return []
@@ -73,16 +74,18 @@ class YamlParser:
             return next_field
         else:
             if_fields = next_field.get("if", [])
-            default_field = next_field.get("else", None)
-            next_fields = [if_field["target"] for if_field in if_fields]
-            if default_field:
-                next_fields.append(default_field)
+            default_fields = next_field.get("else", None)
+            next_fields = [
+                target for if_field in if_fields for target in if_field["target"]
+            ]
+            if default_fields:
+                next_fields.extend(default_fields)
             return next_fields
 
     def _update_next_id_in_expanded_step(
         self, current_step, id_to_partition_to_partition_id
     ):
-        next_field = current_step.get("next")
+        next_field = deepcopy(current_step.get("next"))
         this_partition = current_step["partition"]
 
         def get_updated_ids(this_partition, partition_to_partition_id):
@@ -113,11 +116,11 @@ class YamlParser:
                     partition_to_partition_id=partition_to_partition_id,
                 )
                 updated_next.extend(updated_ids)
-            current_step["next"] = updated_next
+            next_field = updated_next
         else:
             if_fields = next_field.get("if", [])
             for if_field in if_fields:
-                next_id = if_field["target"][0]
+                next_id = if_field["target"]
                 partition_to_partition_id = id_to_partition_to_partition_id.get(next_id)
                 if not partition_to_partition_id:
                     continue
@@ -127,7 +130,7 @@ class YamlParser:
                 )
                 if_field["target"] = updated_ids
 
-            default_field = next_field.get("else")[0]
+            default_field = next_field.get("else")
             if default_field:
                 next_id = default_field
                 partition_to_partition_id = id_to_partition_to_partition_id.get(next_id)
@@ -137,6 +140,7 @@ class YamlParser:
                         this_partition=this_partition,
                     )
                     next_field["else"] = updated_ids
+        return next_field
 
     def _verify_unique_id(self, potential_id, original_id, mapped_steps):
         if potential_id in mapped_steps:
@@ -181,13 +185,14 @@ class YamlParser:
                 step_id_to_expanded_step[step_id] = step
 
         for step_id, step in step_id_to_expanded_step.items():
-            self._update_next_id_in_expanded_step(
+            new_next = self._update_next_id_in_expanded_step(
                 step, original_id_to_partition_to_partitioned_id
             )
+            step["next"] = new_next
 
         next_id_to_upstream_ids = defaultdict(set)
         for step_id, step in step_id_to_expanded_step.items():
-            next_ids = self._get_next_id_from_raw_step(step)
+            next_ids = self._get_next_id_from_expanded_step(step)
             for next_id in next_ids:
                 next_id_to_upstream_ids[next_id].add(step_id)
 
