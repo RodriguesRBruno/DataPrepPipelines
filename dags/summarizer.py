@@ -76,60 +76,55 @@ with DAG(
         return sorted_indices
 
     def _get_report_summary(
+        all_dags: dict[str, dict[str, Any]],
         most_recent_dag_runs: dict[str, dict[str, Any] | None],
-        client: AirflowAPIClient,
     ):
         import pandas as pd  # Import in task to not slow down dag parsing
 
-        progress_df = pd.DataFrame(
-            {
-                "DAG ID": [],
-                "Task Name": [],
-                "Task ID": [],
-                "Task Status": [],
-            }
-        )
-
+        dag_info_dicts = []
         for dag_id, run_dict in most_recent_dag_runs.items():
+            this_dag = all_dags[dag_id]
+            print(f"{this_dag=}")
             if run_dict is None:
-                task_list = client.tasks.get_tasks(dag_id=dag_id)["tasks"]
                 run_state = None
             else:
-                task_list = client.task_instances.get_task_instances_in_dag_run(
-                    dag_id=dag_id, dag_run_id=run_dict["dag_run_id"]
-                )["task_instances"]
                 run_state = run_dict["state"]
-            for task_dict in task_list:
-                task_id = task_dict["task_id"]
-                if task_id not in ordered_step_ids:
-                    continue
 
-                update_dict = {
-                    "Task Name": task_dict["task_display_name"],
-                    "Task ID": task_id,
-                    "DAG ID": dag_id,
-                    "Task Status": task_dict.get("state", None),
-                    "DAG Run State": run_state,
-                }
-                task_df = pd.DataFrame([update_dict])
-                progress_df = pd.concat([progress_df, task_df])
+            dag_step_tags = [
+                tag["name"]
+                for tag in this_dag["tags"]
+                if tag["name"] in ordered_step_ids
+            ]
+            update_dict = {
+                "DAG ID": dag_id,
+                "DAG Display Name": this_dag["dag_display_name"],
+                "DAG Run State": run_state,
+                "DAG Step Tag": dag_step_tags,
+            }
 
+            dag_info_dicts.append(update_dict)
+
+        progress_df = pd.DataFrame(dag_info_dicts)
+        print(f"{progress_df[['DAG ID', 'DAG Step Tag']]=}")
+        progress_df = progress_df.explode("DAG Step Tag")
+        print(f"{progress_df[['DAG ID', 'DAG Step Tag']]=}")
         progress_df = progress_df.sort_values(
-            by=["Task ID"],
+            by=["DAG Step Tag"],
             key=_sort_column,
         )
-        all_task_ids = progress_df["Task ID"].unique()
+        all_dag_tags = progress_df["DAG Step Tag"].unique()
         summary_dict = defaultdict(lambda: dict())
 
-        for task_id in all_task_ids:
+        for dag_tag in all_dag_tags:
 
-            relevant_df = progress_df[progress_df["Task ID"] == task_id]
+            relevant_df = progress_df[progress_df["DAG Step Tag"] == dag_tag]
+            if relevant_df.empty:
+                continue
             task_success_ratio = len(
-                relevant_df[relevant_df["Task Status"] == TaskInstanceState.SUCCESS]
+                relevant_df[relevant_df["DAG Run State"] == DagRunState.SUCCESS]
             ) / len(relevant_df)
             success_percentage = round(task_success_ratio * 100, 3)
-            task_name = task_id.replace("_", " ").title()
-            summary_dict[task_name] = success_percentage
+            summary_dict[dag_tag] = success_percentage
 
         summary_dict = dict(summary_dict)
 
@@ -151,7 +146,7 @@ with DAG(
         with AirflowAPIClient() as airflow_client:
             all_dags = _get_dag_id_to_dag_dict(airflow_client)
             most_recent_dag_runs = _get_most_recent_dag_runs(all_dags, airflow_client)
-            report_summary = _get_report_summary(most_recent_dag_runs, airflow_client)
+            report_summary = _get_report_summary(all_dags, most_recent_dag_runs)
         report_summary.write_yaml()
 
     rano_summarizer()
