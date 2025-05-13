@@ -18,7 +18,7 @@ class YamlParser:
         self.raw_steps = yaml_content["steps"]
         self._raw_conditions = yaml_content.get("conditions", [])
         self._raw_subject_definitions = yaml_content.get("per_subject_def", {})
-        self.dag_builders = self.map_dag_builders_from_yaml()
+        self.dag_builders = None
 
     @staticmethod
     def read_yaml_definition() -> (
@@ -252,5 +252,8 @@ class YamlParser:
         return dag_builder_list
 
     def build_dags(self) -> list[DAG]:
+        if self.dag_builders is None:
+            self.dag_builders = self.map_dag_builders_from_yaml()
+
         dags_list = [builder.build_dag() for builder in self.dag_builders]
         return dags_list
