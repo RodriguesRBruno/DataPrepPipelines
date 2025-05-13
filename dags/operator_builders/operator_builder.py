@@ -157,7 +157,7 @@ class OperatorBuilder(ABC):
             sensor_id = f"conditions_{operator_id}"
             branching_id = f"branch_{operator_id}"
             wait_time = id_info.pop("wait", None)
-            default_conditions = id_info.pop("else", None)
+            default_conditions = id_info.pop("else", [])
             kwargs["next_ids"] = [sensor_id]
 
             conditions = branching_info
