@@ -4,7 +4,6 @@ from abc import ABC, abstractmethod
 from copy import deepcopy
 from constants import ALWAYS_CONDITION
 from api_client.client import AirflowAPIClient
-from airflow.sdk.api.client import ServerResponseError
 import os
 from dataclasses import dataclass, field
 
@@ -38,7 +37,7 @@ class OperatorBuilder(ABC):
         # Always call this init during subclass inits
         self.operator_id = operator_id
         self.raw_id = raw_id
-        self.display_name = self.raw_id.replace("_", " ").title()
+        self.display_name = self._convert_id_to_display_name(self.raw_id)
 
         if make_outlet:
             self.next_ids = []
@@ -54,7 +53,7 @@ class OperatorBuilder(ABC):
             self.pool_info = PoolInfo(name=self.raw_id, slots=limit)
 
         self.partition = kwargs.get("partition")
-        self.tags = [self.raw_id]
+        self.tags = [self.raw_id, self.display_name]
         if self.partition:
             self.tags.append(self.partition)
             self.display_name += f" - {self.partition}"
@@ -76,6 +75,10 @@ class OperatorBuilder(ABC):
         else:
             outlets = []
         return outlets
+
+    @staticmethod
+    def _convert_id_to_display_name(original_id):
+        return original_id.replace("_", " ").title()
 
     def get_airflow_operator(self) -> BaseOperator:
         base_operator = self._define_base_operator()
@@ -179,7 +182,7 @@ class OperatorBuilder(ABC):
 
             sensor_operator = PythonSensorBuilder(
                 conditions=processed_conditions,
-                raw_id=f"sensor_{operator_raw_id}",
+                raw_id=f"conditions_{operator_raw_id}",
                 wait_time=wait_time,
                 operator_id=sensor_id,
                 next_ids=[branching_id],
