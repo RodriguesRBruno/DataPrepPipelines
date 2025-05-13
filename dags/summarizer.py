@@ -11,7 +11,6 @@ from airflow.models.dag import DAG
 from dag_utils import ReportSummary
 from constants import YESTERDAY
 from datetime import timedelta
-from airflow.utils.state import TaskInstanceState
 from yaml_parser.yaml_parser import YamlParser
 from typing import TYPE_CHECKING, Any
 from api_client.client import AirflowAPIClient
