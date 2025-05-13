@@ -84,7 +84,6 @@ with DAG(
         dag_info_dicts = []
         for dag_id, run_dict in most_recent_dag_runs.items():
             this_dag = all_dags[dag_id]
-            print(f"{this_dag=}")
             if run_dict is None:
                 run_state = None
             else:
@@ -105,9 +104,7 @@ with DAG(
             dag_info_dicts.append(update_dict)
 
         progress_df = pd.DataFrame(dag_info_dicts)
-        print(f"{progress_df[['DAG ID', 'DAG Step Tag']]=}")
         progress_df = progress_df.explode("DAG Step Tag")
-        print(f"{progress_df[['DAG ID', 'DAG Step Tag']]=}")
         progress_df = progress_df.sort_values(
             by=["DAG Step Tag"],
             key=_sort_column,
