@@ -134,17 +134,16 @@ Once logged in, the Airflow home screen will be displayed, as shown below. You c
 
 ![Airflow home screen](./readme_images/airflow_home.png)
 
-
-A list of all currently loaded Airflow DAGs will be displayed, as shown below. The pipeline itself consists of multiple DAGs. Each DAG is tagged with all the steps (from the `dags_from_yaml/rano.yaml` file) and, in case of steps with `per_subject: true`, also by the Subject ID and Timepoint.
+A list of all currently loaded Airflow DAGs will be displayed, as shown below. The pipeline itself consists of multiple DAGs and each DAG maps to one of the `steps` defind in the YAML version of the Pipeline. Each DAG is the corresponding step name, both in its raw format from the YAML file (`some_step`) and in a more readable format (`Some Step`) and, in case of steps with `per_subject: true`, also by the Subject ID and Timepoint.
 
 ![DAG view in Airflow](./readme_images/dag_list.png)
 
-A view of Airflow Task Instances, which more closely match the `steps` defined in the YAML version of the pipeline, may be displayed by clicking the `Task Instances` button at the top of the screen. In this screen, Task Instances may be filtered by their state. We recommend filtering by `Running`, `Failed`, `Success` and `Up for Reschedule` states. The `Up for Reschedule` state is relevant for the Manual Approval Steps discussed in [Section 5.1](#51-manual-approval-steps). The Figure below shows a view of Task Instances with these filters applied, with the `Task Instances` button showcased in red and the state filters in blue.
+A view of Airflow Task Instances, which are the unit of execution used by Airflow, may be displayed by clicking the `Task Instances` button at the top of the screen. In this screen, Task Instances may be filtered by their state. We recommend filtering by `Running`, `Failed`, `Success` and `Up for Reschedule` states. The `Up for Reschedule` state is relevant for the Manual Approval Steps discussed in [Section 5.1](#51-manual-approval-steps). The Figure below shows a view of Task Instances with these filters applied, with the `Task Instances` button showcased in red and the state filters in blue.
 
 ![Task Instances view in Airflow](./readme_images/task_instances_view.png)
 
 ### 5.1 Manual Approval Steps
-The automatic Tumor Segmentations must be manually validated before the Pipeline concludes. To help with finding the tasks that are awaiting for Manual Approval, we recomend going into the Task Instance view described previously and filter by `Up for Schedule` tasks. This is the state that tasks defined `conditions` sections of the YAML Pipeline are set to while awaiting for any of the conditions to be True. Therefore, these tasks will remain in this state until manual review is done. The Figure below shows a Task Instance list view in this situation, with the Task IDs and State in red:
+The automatic Tumor Segmentations must be manually validated before the Pipeline concludes. To help with finding the tasks that are awaiting for Manual Approval, we recomend going into the Task Instance view described previously and filter by `Up for Reschedule` tasks. The pipeline automatically creates the `Conditions Prepare for Manual Review` task to evaluate the `if` fields from the `prepare_for_manual_review` step defined in the YAML file. While awating for approval, these tasks remain in the `Up for Reschedule` state. The Figure below shows a Task Instance list view in this situation, with the Task IDs and State in red:
 
 ![DAGs ready for Manual Review](./readme_images/tasks_manual_review.png)
 
