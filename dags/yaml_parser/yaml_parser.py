@@ -97,49 +97,46 @@ class YamlParser:
                 updated_ids = [partition_to_partition_id[this_partition]]
             return updated_ids
 
+        def update_next_ids(original_next_ids):
+            new_ids = []
+            for next_id in original_next_ids:
+                partition_to_partition_id = id_to_partition_to_partition_id.get(next_id)
+                if not partition_to_partition_id:
+                    new_ids.append(next_id)
+                    continue
+
+                updated_ids = get_updated_ids(
+                    this_partition=this_partition,
+                    partition_to_partition_id=partition_to_partition_id,
+                )
+                new_ids.extend(updated_ids)
+            return new_ids
+
         if not next_field:
             return
         elif isinstance(next_field, str):
             next_field = [next_field]
 
         if isinstance(next_field, list):
-            updated_next = []
-
-            for next_id in next_field:
-                partition_to_partition_id = id_to_partition_to_partition_id.get(next_id)
-                if not partition_to_partition_id:
-                    updated_next.append(next_id)
-                    continue
-
-                updated_ids = get_updated_ids(
-                    this_partition=this_partition,
-                    partition_to_partition_id=partition_to_partition_id,
-                )
-                updated_next.extend(updated_ids)
+            updated_next = update_next_ids(next_field)
             next_field = updated_next
         else:
             if_fields = next_field.get("if", [])
             for if_field in if_fields:
-                next_id = if_field["target"]
-                partition_to_partition_id = id_to_partition_to_partition_id.get(next_id)
-                if not partition_to_partition_id:
-                    continue
-                updated_ids = get_updated_ids(
-                    partition_to_partition_id=partition_to_partition_id,
-                    this_partition=this_partition,
-                )
+                next_ids = if_field["target"]
+
+                if isinstance(next_ids, str):
+                    next_ids = [next_ids]
+                updated_ids = update_next_ids(next_ids)
                 if_field["target"] = updated_ids
 
             default_field = next_field.get("else")
             if default_field:
-                next_id = default_field
-                partition_to_partition_id = id_to_partition_to_partition_id.get(next_id)
-                if partition_to_partition_id is not None:
-                    updated_ids = get_updated_ids(
-                        partition_to_partition_id=partition_to_partition_id,
-                        this_partition=this_partition,
-                    )
-                    next_field["else"] = updated_ids
+                if isinstance(default_field, str):
+                    default_field = [default_field]
+                new_default = update_next_ids(default_field)
+                next_field["else"] = new_default
+
         return next_field
 
     def _verify_unique_id(self, potential_id, original_id, mapped_steps):
