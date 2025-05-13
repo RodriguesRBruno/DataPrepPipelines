@@ -138,7 +138,12 @@ with DAG(
         )
         return report_summary
 
-    @task(task_id="pipeline_summarizer", task_display_name="Pipeline Summarizer")
+    @task(
+        task_id="pipeline_summarizer",
+        task_display_name="Pipeline Summarizer",
+        retries=2,
+        retry_delay=30,
+    )
     def rano_summarizer():
         with AirflowAPIClient() as airflow_client:
             all_dags = _get_dag_id_to_dag_dict(airflow_client)
