@@ -1,0 +1,39 @@
+base_step: &BASE_STEP
+  - type: dummy
+    image: local/hemnet:0.0.2
+    mounts:  
+      - ${WORKSPACE_DIR}:/workspace
+      - ${INPUT_DATA_DIR}:/workspace/input_data
+      - ${DATA_DIR}:/workspace/data
+    per_subject: true
+    limit: 2
+
+steps:
+  - id: image_registration
+    <<: *BASE_STEP
+    command: python image_registration.py
+    next: affine_registration
+    
+  - id: affine_registration
+    <<: *BASE_STEP
+    command: python affine_registration.py
+    next: bspline_registration
+  
+  - id: bspline_registration
+    <<: *BASE_STEP 
+    command: python bsplin_registration.py
+    next: generate_masks
+  
+  - id: generate_masks
+    <<: *BASE_STEP
+    command: python generate_masks.py 
+    next: save_tiles
+
+  - id: save_tiles
+    <<: *BASE_STEP
+    command: python save_tiles.py
+    next: null
+
+per_subject_def:
+  type: function
+  function_name: slides_definition.slides_definition
