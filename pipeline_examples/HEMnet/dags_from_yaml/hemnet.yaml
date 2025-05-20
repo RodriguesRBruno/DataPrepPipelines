@@ -1,6 +1,6 @@
 base_step: &BASE_STEP
   - type: dummy
-    image: local/hemnet:0.0.2
+    image: local/hemnet:0.0.3
     mounts:  
       - ${WORKSPACE_DIR}:/workspace
       - ${INPUT_DATA_DIR}:/workspace/input_data
@@ -9,9 +9,17 @@ base_step: &BASE_STEP
     limit: 2
 
 steps:
+  - id: create_normalisation
+    <<: *BASE_STEP
+    type: container
+    command: python normaliser_step.py 
+    next: image_registration
+    per_subject: false
+
   - id: image_registration
     <<: *BASE_STEP
-    command: python image_registration.py
+    type: container
+    command: python image_registration.py -v
     next: affine_registration
     
   - id: affine_registration

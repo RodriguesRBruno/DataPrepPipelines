@@ -16,5 +16,5 @@ def slides_definition(pipeline_state):
     TP53_slides = [slide for slide in slides if "TP53" in slide]
     HE_slides = [slide for slide in slides if "HandE" in slide]
     Paired_slides = list(zip(TP53_slides, HE_slides))
-    prefixes = [paired_slide[0][:-8] for paired_slide in Paired_slides]
+    prefixes = [paired_slide[0][:-11] for paired_slide in Paired_slides]
     return prefixes
