@@ -1,6 +1,6 @@
 base_step: &BASE_STEP
   - type: dummy
-    image: local/hemnet:0.0.3
+    image: local/hemnet:0.0.4
     mounts:  
       - ${WORKSPACE_DIR}:/workspace
       - ${INPUT_DATA_DIR}:/workspace/input_data
@@ -24,12 +24,13 @@ steps:
     
   - id: affine_registration
     <<: *BASE_STEP
-    command: python affine_registration.py
+    type: container
+    command: python affine_registration.py -v
     next: bspline_registration
   
   - id: bspline_registration
     <<: *BASE_STEP 
-    command: python bsplin_registration.py
+    command: python bspline_registration.py -v
     next: generate_masks
   
   - id: generate_masks
