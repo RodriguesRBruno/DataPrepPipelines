@@ -2,10 +2,9 @@ import argparse
 from pathlib import Path
 from mod_utils import (
     create_target_fitted_normaliser,
-    dump_normaliser,
+    dump_data,
 )
-from openslide import open_slide
-from slide import read_slide_at_mag
+from mod_constants import NORMALISER_PKL
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -48,4 +47,4 @@ if __name__ == "__main__":
     normaliser = create_target_fitted_normaliser(
         TEMPLATE_SLIDE_PATH, ALIGNMENT_MAG, NORMALISER_METHOD, STANDARDISE_LUMINOSITY
     )
-    dump_normaliser(normalizer_obj=normaliser)
+    dump_data(data_obj=normaliser, data_name=NORMALISER_PKL)

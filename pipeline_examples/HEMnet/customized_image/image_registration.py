@@ -2,11 +2,11 @@ import argparse
 from mod_utils import (
     load_slides_by_prefix,
     save_img,
-    load_normaliser,
-    dump_normaliser,
+    load_data,
+    dump_data,
 )
 import SimpleITK as sitk
-from mod_constants import OUTPUT_PATH
+from mod_constants import OUTPUT_PATH, INTERPOLATOR, NORMALISER_PKL
 from utils import (
     get_itk_from_pil,
     sitk_transform_rgb,
@@ -49,12 +49,12 @@ if __name__ == "__main__":
     print("Processing Slide: {0}".format(PREFIX))
 
     he, tp53 = load_slides_by_prefix(PREFIX, ALIGNMENT_MAG)
-    normaliser = load_normaliser()
+    normaliser = load_data(data_name=NORMALISER_PKL)
 
     # Normalise H&E Slide
     normaliser.fit_source(he)
     he_norm = normaliser.transform_tile(he)
-    dump_normaliser(normaliser, PREFIX)
+    dump_data(data_name=NORMALISER_PKL, data_obj=normaliser, subdir=PREFIX)
 
     if VERBOSE:
         save_img(
@@ -66,8 +66,6 @@ if __name__ == "__main__":
     ######################
     # Image Registration #
     ######################
-
-    INTERPOLATOR = sitk.sitkLanczosWindowedSinc
 
     # Convert to grayscale
     tp53_gray = tp53.convert("L")
@@ -138,3 +136,4 @@ if __name__ == "__main__":
     )
     if VERBOSE:
         print("Initial mutual information metric: {0}".format(initial_mutual_info))
+    # performance_df.loc[SLIDE_NUM, "Affine_Mutual_Info"] = affine_mutual_info  # Figure out how to add this

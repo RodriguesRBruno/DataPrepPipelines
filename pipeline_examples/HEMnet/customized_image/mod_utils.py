@@ -1,10 +1,13 @@
 import argparse
 import os
 from openslide import open_slide
-from mod_constants import INPUT_PATH, BASE_NORMALISER, NORMALISER_PATH
+from mod_constants import INPUT_PATH, TEMP_DATA_PATH
 from slide import read_slide_at_mag
 from normaliser import IterativeNormaliser
 import pickle
+import SimpleITK as sitk
+import numpy as np
+from utils import get_pil_from_itk, get_itk_from_pil
 
 
 def save_img(img, path, img_type):
@@ -58,25 +61,60 @@ def create_target_fitted_normaliser(
     return normaliser
 
 
-def _get_normaliser_full_path(normaliser_name):
-    pickle_file = normaliser_name + ".pkl"
-    os.makedirs(NORMALISER_PATH, exist_ok=True)
-    full_pickle_path = NORMALISER_PATH.joinpath(pickle_file)
+def _get_saved_file_full_path(filename, subdir: str = None):
+    os.makedirs(TEMP_DATA_PATH, exist_ok=True)
+    data_dir = TEMP_DATA_PATH
+    if subdir is not None:
+        data_dir = TEMP_DATA_PATH.joinpath(subdir)
+        os.makedirs(data_dir, exist_ok=True)
+    full_pickle_path = data_dir.joinpath(filename)
     return full_pickle_path
 
 
-def dump_normaliser(normalizer_obj, normaliser_name: str = BASE_NORMALISER):
-    full_path = _get_normaliser_full_path(normaliser_name)
+def dump_sitk_image(sitk_image, data_name: str, subdir: str = None):
+    print(f"Dumping image {data_name} as a numpy array...")
+    np_path = _get_saved_file_full_path(data_name, subdir)
+    as_pil = get_pil_from_itk(sitk_image)
+    as_np = np.array(as_pil)
+    with open(np_path, "wb") as f:
+        np.save(f, as_np)
+
+
+def load_sitk_image(data_name, subdir: str = None):
+    np_path = _get_saved_file_full_path(data_name, subdir)
+    with open(np_path, "rb") as f:
+        as_np = np.load(f)
+    as_itk = sitk.GetImageFromArray(as_np)
+    return as_itk
+
+
+def dump_sitk_transform(
+    sitk_transform: sitk.Transform, data_name: str, subdir: str = None
+):
+    print(f"Dumping SITK transform {data_name}...")
+    transform_path = str(_get_saved_file_full_path(data_name, subdir))
+    sitk_transform.FlattenTransform()
+    sitk_transform.WriteTransform(transform_path)
+
+
+def load_stik_transform(data_name, subdir: str = None):
+    transform_path = _get_saved_file_full_path(data_name, subdir)
+    sitk_transform = sitk.ReadTransform(transform_path)
+    return sitk_transform
+
+
+def dump_data(data_obj, data_name: str, subdir: str = None):
+    full_path = _get_saved_file_full_path(data_name, subdir)
     with open(full_path, "wb") as f:
-        pickle.dump(normalizer_obj, f)
-    print(f"Successfully dumped normalizer at {full_path}.")
+        pickle.dump(data_obj, f)
+    print(f"Successfully dumped object {data_name} at {full_path}.")
 
 
-def load_normaliser(normaliser_name: str = BASE_NORMALISER) -> IterativeNormaliser:
-    full_path = _get_normaliser_full_path(normaliser_name)
+def load_data(data_name: str, subdir: str = None):
+    full_path = _get_saved_file_full_path(data_name, subdir)
     with open(full_path, "rb") as f:
         normalizer_obj = pickle.load(f)
-    print(f"Successfully loaded normalizer from {full_path}.")
+    print(f"Successfully loaded object {data_name} from {full_path}.")
     return normalizer_obj
 
 
@@ -100,3 +138,11 @@ def load_slides_by_prefix(prefix: str, aligment_mag: float):
         f"Successfully loaded slides with prefix {prefix}.\nSlides loaded:\n{' '.join(relevant_filepaths)}"
     )
     return he, tp53
+
+
+def print_info(some_ob, starter_str):
+    print(starter_str)
+    print(some_ob)
+    print(type(some_ob))
+    print(some_ob.__dict__)
+    print("-------------------------------")
