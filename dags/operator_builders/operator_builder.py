@@ -96,6 +96,8 @@ class OperatorBuilder(ABC):
                 )
             base_operator.pool = pool_response["name"]
             OperatorBuilder.CREATED_POOLS.add(pool_response["name"])
+        else:
+            base_operator.pool = self.pool_info.name
 
         if self.outlets:
             base_operator.outlets = self.outlets
