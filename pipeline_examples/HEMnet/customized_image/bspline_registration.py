@@ -68,7 +68,7 @@ if __name__ == "__main__":
     ALIGNMENT_MAG = args.align_mag
     VERBOSE = args.verbosity
 
-    print("Processing Slide: {0}".format(PREFIX))
+    print("Running B-Spline registration step on Slide: {0}".format(PREFIX))
 
     start = time.perf_counter()
     he, tp53 = load_and_magnify_slides_by_prefix(PREFIX, ALIGNMENT_MAG)

@@ -57,7 +57,7 @@ if __name__ == "__main__":
     ALIGNMENT_MAG = args.align_mag
     VERBOSE = args.verbosity
 
-    print("Processing Slide: {0}".format(PREFIX))
+    print("Runing Affine Registration step on slide: {0}".format(PREFIX))
 
     start = time.perf_counter()
     tp53_gray = load_pil_image(TP53_GRAY, PREFIX)

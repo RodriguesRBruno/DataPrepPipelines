@@ -37,6 +37,7 @@ if __name__ == "__main__":
         help="Magnification for aligning H&E and TP53 slide",
     )
 
+    print("Running Normaliser step")
     args = parser.parse_args()
     TEMPLATE_SLIDE_PATH = args.template_path
 

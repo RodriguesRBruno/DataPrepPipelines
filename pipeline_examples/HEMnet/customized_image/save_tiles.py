@@ -71,7 +71,7 @@ if __name__ == "__main__":
     TILE_MAG = args.tile_mag
     OUTPUT_TILE_SIZE = args.tile_size
 
-    print("Processing Slide: {0}".format(PREFIX))
+    print("Saving tiles from Slide: {0}".format(PREFIX))
 
     start = time.perf_counter()
     he_slide, _ = load_slides_by_prefix(PREFIX)

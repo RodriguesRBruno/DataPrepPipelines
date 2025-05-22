@@ -1,9 +1,5 @@
 import argparse
-from mod_utils import (
-    save_img,
-    dump_numpy_array,
-    load_pil_image
-)
+from mod_utils import save_img, dump_numpy_array, load_pil_image
 from mod_constants import (
     OUTPUT_PATH,
     HE_FILTERED_NPY,
@@ -11,13 +7,12 @@ from mod_constants import (
     U_MASK_FILTERED,
     C_MASK_FILTERED,
     NON_C_MASK_FILTERED,
-    T_MASK_FILTERED
+    T_MASK_FILTERED,
 )
 from utils import (
     cancer_mask,
     tissue_mask_grabcut,
     plot_masks,
-
 )
 
 from HEMnet_train_dataset import uncertain_mask, restricted_float
@@ -41,14 +36,30 @@ if __name__ == "__main__":
         default=2,
         help="Magnification for aligning H&E and TP53 slide",
     )
-    parser.add_argument('-m', '--tile_mag', type = float, default = 10,
-                        help = 'Magnification for generating tiles')
-    parser.add_argument('-ts', '--tile_size', type = int, default = 224,
-                        help = 'Output tile size in pixels')
-    parser.add_argument('-c', '--cancer_thresh', type = restricted_float, default = 0.39,
-                        help = 'TP53 threshold for cancer classification')
-    parser.add_argument('-nc', '--non_cancer_thresh', type = restricted_float, default = 0.40,
-                        help = 'TP53 threshold for non-cancer classification')
+    parser.add_argument(
+        "-m",
+        "--tile_mag",
+        type=float,
+        default=10,
+        help="Magnification for generating tiles",
+    )
+    parser.add_argument(
+        "-ts", "--tile_size", type=int, default=224, help="Output tile size in pixels"
+    )
+    parser.add_argument(
+        "-c",
+        "--cancer_thresh",
+        type=restricted_float,
+        default=0.39,
+        help="TP53 threshold for cancer classification",
+    )
+    parser.add_argument(
+        "-nc",
+        "--non_cancer_thresh",
+        type=restricted_float,
+        default=0.40,
+        help="TP53 threshold for non-cancer classification",
+    )
     parser.add_argument(
         "-v", "--verbosity", action="store_true", help="Increase output verbosity"
     )
@@ -64,8 +75,8 @@ if __name__ == "__main__":
     NON_CANCER_THRESH = args.non_cancer_thresh
     TILE_MAG = args.tile_mag
     OUTPUT_TILE_SIZE = args.tile_size
-    
-    print("Processing Slide: {0}".format(PREFIX))
+
+    print("Running Mask Generation step on Slide: {0}".format(PREFIX))
 
     start = time.perf_counter()
     he_filtered = load_pil_image(HE_FILTERED_NPY, PREFIX)
@@ -166,8 +177,12 @@ if __name__ == "__main__":
                 "JPEG",
             )
 
-    arrays_to_save_tuples = [(u_mask_filtered, U_MASK_FILTERED), (c_mask_filtered, C_MASK_FILTERED), (non_c_mask_filtered, NON_C_MASK_FILTERED),
-                             (t_mask_filtered, T_MASK_FILTERED)]
+    arrays_to_save_tuples = [
+        (u_mask_filtered, U_MASK_FILTERED),
+        (c_mask_filtered, C_MASK_FILTERED),
+        (non_c_mask_filtered, NON_C_MASK_FILTERED),
+        (t_mask_filtered, T_MASK_FILTERED),
+    ]
 
     for array_to_save_tuple in arrays_to_save_tuples:
         array, filename = array_to_save_tuple

@@ -5,10 +5,17 @@ from mod_utils import (
     load_data,
     dump_pil_image,
     get_fixed_and_moving_images,
-    dump_data
+    dump_data,
 )
 import SimpleITK as sitk
-from mod_constants import OUTPUT_PATH, INTERPOLATOR, NORMALISER_PKL, HE_NORM, HE_GRAY, TP53_GRAY
+from mod_constants import (
+    OUTPUT_PATH,
+    INTERPOLATOR,
+    NORMALISER_PKL,
+    HE_NORM,
+    HE_GRAY,
+    TP53_GRAY,
+)
 from utils import (
     sitk_transform_rgb,
     PlotImageAlignment,
@@ -47,7 +54,7 @@ if __name__ == "__main__":
     ALIGNMENT_MAG = args.align_mag
     VERBOSE = args.verbosity
 
-    print("Processing Slide: {0}".format(PREFIX))
+    print("Running Image Registration step on Slide: {0}".format(PREFIX))
 
     he, tp53 = load_and_magnify_slides_by_prefix(PREFIX, ALIGNMENT_MAG)
     normaliser = load_data(data_name=NORMALISER_PKL)
@@ -56,7 +63,7 @@ if __name__ == "__main__":
     normaliser.fit_source(he)
     he_norm = normaliser.transform_tile(he)
     dump_data(data_obj=normaliser, data_name=NORMALISER_PKL, subdir=PREFIX)
-    
+
     if VERBOSE:
         save_img(
             he_norm.convert("RGB"),
@@ -76,7 +83,7 @@ if __name__ == "__main__":
     dump_pil_image(he_norm, HE_NORM, PREFIX)
     dump_pil_image(he_gray, HE_GRAY, PREFIX)
     dump_pil_image(tp53_gray, TP53_GRAY, PREFIX)
-    
+
     # Set fixed and moving images
     fixed_img, moving_img = get_fixed_and_moving_images(tp53_gray, he_gray)
 
