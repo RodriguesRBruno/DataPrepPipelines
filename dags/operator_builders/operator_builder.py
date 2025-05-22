@@ -82,22 +82,22 @@ class OperatorBuilder(ABC):
 
     def get_airflow_operator(self) -> BaseOperator:
         base_operator = self._define_base_operator()
-        if (
-            self.pool_info is not None
-            and os.getenv("IS_DAG_PROCESSOR")
-            and self.pool_info.name not in OperatorBuilder.CREATED_POOLS
-        ):
-            with AirflowAPIClient() as airflow_client:
-                pool_response = airflow_client.pools.create_or_update_pool(
-                    name=self.pool_info.name,
-                    slots=self.pool_info.slots,
-                    description=self.pool_info.description,
-                    include_deferred=self.pool_info.include_deferred,
-                )
-            base_operator.pool = pool_response["name"]
-            OperatorBuilder.CREATED_POOLS.add(pool_response["name"])
-        else:
+        if self.pool_info is not None:
             base_operator.pool = self.pool_info.name
+
+            if (
+                os.getenv("IS_DAG_PROCESSOR")
+                and self.pool_info.name not in OperatorBuilder.CREATED_POOLS
+            ):
+                with AirflowAPIClient() as airflow_client:
+                    pool_response = airflow_client.pools.create_or_update_pool(
+                        name=self.pool_info.name,
+                        slots=self.pool_info.slots,
+                        description=self.pool_info.description,
+                        include_deferred=self.pool_info.include_deferred,
+                    )
+                base_operator.pool = pool_response["name"]
+                OperatorBuilder.CREATED_POOLS.add(pool_response["name"])
 
         if self.outlets:
             base_operator.outlets = self.outlets
