@@ -128,17 +128,26 @@ When the parser converts the YAML file into Airflow, each box in the above Figur
 ## 5. Monitoring in Airflow
 Airflow’s Web UI can be used to monitor the Pipeline while it is running. It can be accessed via port 8080 in the Machine where Airflow is running. If running locally, you can simply open http://localhost:8080/ on your Browser to access the UI. Use the `_AIRFLOW_USER` and `_AIRFLOW_PASSWORD` defined in the `.env.rano` file from [Section 2](#2-configuring-the-env-file-for-the-rano-pipeline) to log in.
 
+![Airflow login screen](./readme_images/airflow_login.png)
 
-Once logged in, a list of all currently loaded Airflow DAGs will be displayed, as shown below. The pipeline itself consists of multiple DAGs. Each DAG is tagged with all the steps (from the `dags_from_yaml/rano.yaml` file) and, in case of steps with `per_subject: true`, also by the Subject ID and Timepoint.
+Once logged in, the Airflow home screen will be displayed, as shown below. You can click on the DAGs button, in red in the figure, to switch to the DAGs view.
+
+![Airflow home screen](./readme_images/airflow_home.png)
+
+A list of all currently loaded Airflow DAGs will be displayed, as shown below. The pipeline itself consists of multiple DAGs and each DAG maps to one of the `steps` defind in the YAML version of the Pipeline. Each DAG is the corresponding step name, both in its raw format from the YAML file (`some_step`) and in a more readable format (`Some Step`) and, in case of steps with `per_subject: true`, also by the Subject ID and Timepoint.
 
 ![DAG view in Airflow](./readme_images/dag_list.png)
 
+A view of Airflow Task Instances, which are the unit of execution used by Airflow, may be displayed by clicking the `Task Instances` button at the top of the screen. In this screen, Task Instances may be filtered by their state. We recommend filtering by `Running`, `Failed`, `Success` and `Up for Reschedule` states. The `Up for Reschedule` state is relevant for the Manual Approval Steps discussed in [Section 5.1](#51-manual-approval-steps). The Figure below shows a view of Task Instances with these filters applied, with the `Task Instances` button showcased in red and the state filters in blue.
+
+![Task Instances view in Airflow](./readme_images/task_instances_view.png)
+
 ### 5.1 Manual Approval Steps
-The automatic Tumor Segmentations must be manually validated before the Pipeline concludes. To help with finding the DAGs that are awaiting for Manual Approval, we recomend filtering DAGs by the `Prepare For Manual Review` tag, which corresponds to the final task run before the manual approval step. The Figure below shows a DAG list view in this situation, with the DAG filter in red:
+The automatic Tumor Segmentations must be manually validated before the Pipeline concludes. To help with finding the tasks that are awaiting for Manual Approval, we recomend going into the Task Instance view described previously and filter by `Up for Reschedule` tasks. The pipeline automatically creates the `Conditions Prepare for Manual Review` task to evaluate the `if` fields from the `prepare_for_manual_review` step defined in the YAML file. While awating for approval, these tasks remain in the `Up for Reschedule` state. The Figure below shows a Task Instance list view in this situation, with the Task IDs and State in red:
 
-![DAGs ready for Manual Review](./readme_images/dags_manual_review.png)
+![DAGs ready for Manual Review](./readme_images/tasks_manual_review.png)
 
-In the Figure above, Subjects AAAC_1/2008.03.031 and AAAC_2/2001.01.01 are ready for manual review, signalled by the `Recent Tasks`  (in blue) column having a light blue circle, indicating a task with status `Up for Reschedule`. This status means that none of the conditions defined in step `prepare_for_manual_review` of the YAML file (`dags_from_yaml/rano.yaml`) have been met yet, and therefore the pipeline is waiting for their manual completion by a user. The procedure for Manual Review is described in Sections [5.1](#51-manual-approval-steps---tumor-segmentation) and [5.2](#52-brain-mask-correction). Subject AAAC_1/2012.01.02 on the other hand, has a currently running task, signalled in lime green, and therefore is not ready for manual review yet.
+In the Figure above, Subjects AAAC_1/2008.03.031 and AAAC_1/2012.01.02 are ready for manual review, signalled by the `State`  (in blue) column having the status `Up for Reschedule`. This status means that none of the conditions defined in step `prepare_for_manual_review` of the YAML file (`dags_from_yaml/rano.yaml`) have been met yet, and therefore the pipeline is waiting for their manual completion by a user. The procedure for Manual Review is described in Sections [5.1](#51-manual-approval-steps---tumor-segmentation) and [5.2](#52-brain-mask-correction). Subject AAAC_2/2001.01.01 on the other hand, has a currently running task, signalled by the `RUnning` state, and therefore is not ready for manual review yet.
 
 #### 5.1.1 Tumor Segmentation
 Once the segmentation for a given subject is ready for review, it will be available at the following path:
@@ -181,22 +190,16 @@ ${DATA_DIR}/manual_review/brain_mask/{SUBJECT_ID}/{TIMEPOINT/finalized/brainMask
 
 ***IMPORTANT!! Do NOT change the filename when moving the file into the finalized directory!*** The pipeline will only detect the corrected Brain Mask if it keeps the exact same filename.
 
-#### 5.3 Final Confirmation
+#### 5.2 Final Confirmation
 There is also a manual confirmation step towards the end of the pipeline (step ID `final_confirmation`, of type  `manual_approval`). When converted into an Airflow task, this step results into a task that always fails and must be manually set as Success by the user. **Before proceeding with this step, *make sure to review and Tumor Segmentations as per [Section 5.1.1](#511-manual-approval-steps---tumor-segmentation) and ensure you approve all of the results, along with necessary corrections to Brain Masks ([Section 5.1.2](#512-brain-mask-correction) if any are necessary.***
 
-Once all results are reviewed, log into Airflow's Web UI. Locate the DAG tagged with `Final Confirmation`. A Filter by tag may be used, as shown in the Figure below, in red.
+Once all results are reviewed, log into Airflow's Web UI. Go into the Task Instance View and locate the Task Instance named `Final Confirmation`. A filter by may be used, as shown in the Figure below, in blue. The task state will be `Failed`, as shown in red in the figure. This is normal, as this task is a manual approval step and therefore must be manually changed to success for approval.
 
-![Filtering DAGs by the Final Confirmation tag.](./readme_images/dag_list_filtered_final_confirmation.png)
+![Filtering DAGs by the Final Confirmation tag.](./readme_images/task_list_filtered_final_confirmation.png)
 
-If the DAG has one completed task (dark green) and one failed task (red) in the Recent Tasks column (blue rectangle), it is ready for review. In this situation, please select the DAG by clicking on its name to open the DAG view.
+***IMPORTANT!!* This task will *NOT* show up if all Manual Reviews are not done yet!** If you are unable to find the `Final Confirmation` task instance, make sure you have completed all the Manual Review steps outlind in [Section 5.1](#51-manual-approval-steps).
 
-Once in the DAG view, click the `Graph` button to view the DAG as a Graph and look for the `Final Confirmation` task. Initially, it should be displayed in red with a `Failed` status. The Figures below illustrates this.
-
-![Final Confirmation task in the DAG Graph view](./readme_images/click_graph_button.png)
-
-![Final Confirmation task in the DAG Graph view](./readme_images/final_confirmation_task.png)
-
-**If you have already validated all the Tumor Segmentations**, select the `Final Confirmation` task. A `Mark state as..` button should appear in the UI. Click on it, select `Success` and confirm your choice. The Figures below illustrate this process.
+If task is in the `Failed` state, it is ready for review. **If you have already validated all the Tumor Segmentations**, scroll your display all the way to the right, revealing a small drop-down arrow. Click the arrow, then click `Success` to open a confirmation prompt. The `Note` tab may be optionally expanded to add a Note to this task, if desired. Finally click `Confirm` to approve the results.  The two figures below illustrate this process.
 
 ![Selecting the Success option in the Mark as Success button](./readme_images/mark_state_as_button.png)
 

@@ -21,8 +21,9 @@ class ContainerOperatorBuilder(OperatorBuilder):
     def build_mounts(self):
         pass
 
-    def create_per_subject(self, subject_slash_timepoint) -> ContainerOperatorBuilder:
-        base_copy = deepcopy(self)
-        extra_command = ["--subject-subdir", subject_slash_timepoint]
-        base_copy.command.extend(extra_command)
-        return base_copy
+    def _get_command(self):
+        if self.partition:
+            command = [*self.command, "--subject-subdir", self.partition]
+        else:
+            command = self.command
+        return command

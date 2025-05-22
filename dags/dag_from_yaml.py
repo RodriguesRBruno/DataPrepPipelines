@@ -1,9 +1,6 @@
 from __future__ import annotations
-from dag_utils import read_yaml_steps, map_operators_from_yaml
+from yaml_parser.yaml_parser import YamlParser
+from airflow.sdk import DAG  # noqa: necessary for Airflow to detect DAGs in this file
 
-steps_from_yaml, conditions_from_yaml = read_yaml_steps()
-dag_builders_list = map_operators_from_yaml(steps_from_yaml, conditions_from_yaml)
-
-for dag_builder in dag_builders_list:
-    # Make sure to return DAGs at top level so they are added to Airflow
-    current_dags = dag_builder.build_dag()
+parser = YamlParser()
+dags = parser.build_dags()
