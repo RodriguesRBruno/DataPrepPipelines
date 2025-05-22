@@ -18,19 +18,22 @@ steps:
     <<: *BASE_STEP
     command: python image_registration.py -v
     next: affine_registration
-    limit: 1
     
   - id: affine_registration
     <<: *BASE_STEP
     command: python affine_registration.py -v
     next: bspline_registration
     limit: 1
-  
+    cpu_share: 2
+    mem_limit: 3g
+    
   - id: bspline_registration
     <<: *BASE_STEP 
     command: python bspline_registration.py -v
     next: generate_masks
     limit: 1
+    cpu_share: 3
+    mem_limit: 3g
 
   - id: generate_masks
     <<: *BASE_STEP
