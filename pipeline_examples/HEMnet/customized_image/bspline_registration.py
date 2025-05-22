@@ -1,22 +1,28 @@
 import argparse
 from mod_utils import (
-    load_slides_by_prefix,
     load_sitk_transform,
     save_fig,
     save_img,
-    load_data,
+    dump_pil_image,
+    load_sitk_image,
+    load_pil_image,
+    get_fixed_and_moving_images,
+    load_and_magnify_slides_by_prefix,
 )
 import matplotlib.pyplot as plt
 import SimpleITK as sitk
 from mod_constants import (
     OUTPUT_PATH,
     INTERPOLATOR,
-    NORMALISER_PKL,
-    MOVING_RESAMPLED_AFFINE,
-    AFFINE_TRANSFORM_PKL,
+    MOVING_RESAMPLED_AFFINE_NPY,
+    AFFINE_TRANSFORM_HDF,
+    HE_FILTERED_NPY,
+    TP53_FILTERED_NPY,
+    HE_GRAY,
+    HE_NORM,
+    TP53_GRAY,
 )
 from utils import (
-    get_itk_from_pil,
     calculate_mutual_info,
     get_pil_from_itk,
     start_plot,
@@ -65,28 +71,21 @@ if __name__ == "__main__":
     print("Processing Slide: {0}".format(PREFIX))
 
     start = time.perf_counter()
-    he, tp53 = load_slides_by_prefix(PREFIX, ALIGNMENT_MAG)
-    normaliser = load_data(data_name=NORMALISER_PKL, subdir=PREFIX)
-    he_norm = normaliser.transform_tile(he)
-    end = time.perf_counter()
+    he, tp53 = load_and_magnify_slides_by_prefix(PREFIX, ALIGNMENT_MAG)
+    he_norm = load_pil_image(HE_NORM, PREFIX)
+    tp53_gray = load_pil_image(TP53_GRAY, PREFIX)
+    he_gray = load_pil_image(HE_GRAY, PREFIX)
+    fixed_img, moving_img = get_fixed_and_moving_images(tp53_gray, he_gray)
 
-    # Convert to grayscale
-    tp53_gray = tp53.convert("L")
-    he_gray = he_norm.convert("L")
-    # Convert to ITK format
-    tp53_itk = get_itk_from_pil(tp53_gray)
-    he_itk = get_itk_from_pil(he_gray)
-    # Set fixed and moving images
-    fixed_img = he_itk
-    moving_img = tp53_itk
-
-    moving_resampled_affine = load_sitk_transform(
-        data_name=MOVING_RESAMPLED_AFFINE, subdir=PREFIX
+    moving_resampled_affine = load_sitk_image(
+        data_name=MOVING_RESAMPLED_AFFINE_NPY, subdir=PREFIX
     )
     affine_transform = load_sitk_transform(
-        data_name=AFFINE_TRANSFORM_PKL, subdir=PREFIX
+        data_name=AFFINE_TRANSFORM_HDF, subdir=PREFIX
     )
-    print(f"Time spent on reloading normaliser and slides: {end-start}s")
+    end = time.perf_counter()
+    print(f"Time spent on reloading images and transforms: {end-start}s")
+
     bspline_method = sitk.ImageRegistrationMethod()
 
     # Similarity metric settings.
@@ -203,6 +202,17 @@ if __name__ == "__main__":
     tp53_filtered = filter_grays(tp53_filtered, tolerance=2)
     he_filtered = filter_grays(he_filtered, tolerance=15)
 
+    dump_pil_image(
+        pil_image=tp53_filtered,
+        data_name=TP53_FILTERED_NPY,
+        subdir=PREFIX,
+    )
+
+    dump_pil_image(
+        pil_image=he_filtered,
+        data_name=HE_FILTERED_NPY,
+        subdir=PREFIX,
+    )
     # Visually compare alignment between the registered TP53 and original H&E image
     if VERBOSE:
         comparison_post_colour_overlay = show_alignment(he_filtered, tp53_filtered)

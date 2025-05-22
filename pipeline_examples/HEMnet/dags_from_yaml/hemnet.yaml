@@ -1,46 +1,53 @@
 base_step: &BASE_STEP
-  - type: dummy
-    image: local/hemnet:0.0.4
+  - type: container
+    image: local/hemnet:0.0.5
     mounts:  
       - ${WORKSPACE_DIR}:/workspace
       - ${INPUT_DATA_DIR}:/workspace/input_data
       - ${DATA_DIR}:/workspace/data
     per_subject: true
-    limit: 2
 
 steps:
   - id: create_normalisation
     <<: *BASE_STEP
-    type: container
     command: python normaliser_step.py 
     next: image_registration
     per_subject: false
 
   - id: image_registration
     <<: *BASE_STEP
-    type: container
     command: python image_registration.py -v
     next: affine_registration
+    limit: 1
     
   - id: affine_registration
     <<: *BASE_STEP
-    type: container
     command: python affine_registration.py -v
     next: bspline_registration
+    limit: 1
   
   - id: bspline_registration
     <<: *BASE_STEP 
     command: python bspline_registration.py -v
     next: generate_masks
-  
+    limit: 1
+
   - id: generate_masks
     <<: *BASE_STEP
-    command: python generate_masks.py 
+    command: python generate_masks.py -v
     next: save_tiles
+    limit: 2
 
   - id: save_tiles
     <<: *BASE_STEP
-    command: python save_tiles.py
+    command: python save_tiles.py -v
+    next: cleanup
+    limit: 2
+    
+  - id: cleanup
+    <<: *BASE_STEP
+    per_subject: false
+    command: python cleanup.py
     next: null
 
 per_subject_def:

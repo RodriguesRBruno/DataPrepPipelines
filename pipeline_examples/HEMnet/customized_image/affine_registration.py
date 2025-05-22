@@ -1,23 +1,22 @@
 import argparse
 from mod_utils import (
-    load_slides_by_prefix,
-    load_data,
+    load_pil_image,
     save_fig,
     dump_sitk_transform,
-    print_info,
     dump_sitk_image,
+    get_fixed_and_moving_images,
 )
 import matplotlib.pyplot as plt
 import SimpleITK as sitk
 from mod_constants import (
     OUTPUT_PATH,
     INTERPOLATOR,
-    NORMALISER_PKL,
-    AFFINE_TRANSFORM_PKL,
-    MOVING_RESAMPLED_AFFINE,
+    AFFINE_TRANSFORM_HDF,
+    MOVING_RESAMPLED_AFFINE_NPY,
+    TP53_GRAY,
+    HE_GRAY,
 )
 from utils import (
-    get_itk_from_pil,
     calculate_mutual_info,
     get_pil_from_itk,
     start_plot,
@@ -61,20 +60,11 @@ if __name__ == "__main__":
     print("Processing Slide: {0}".format(PREFIX))
 
     start = time.perf_counter()
-    he, tp53 = load_slides_by_prefix(PREFIX, ALIGNMENT_MAG)
-    normaliser = load_data(data_name=NORMALISER_PKL, subdir=PREFIX)
-    he_norm = normaliser.transform_tile(he)
-
-    # Convert to grayscale
-    tp53_gray = tp53.convert("L")
-    he_gray = he_norm.convert("L")
-    # Convert to ITK format
-    tp53_itk = get_itk_from_pil(tp53_gray)
-    he_itk = get_itk_from_pil(he_gray)
-    # Set fixed and moving images
-    fixed_img = he_itk
-    moving_img = tp53_itk
+    tp53_gray = load_pil_image(TP53_GRAY, PREFIX)
+    he_gray = load_pil_image(HE_GRAY, PREFIX)
+    fixed_img, moving_img = get_fixed_and_moving_images(tp53_gray, he_gray)
     end = time.perf_counter()
+
     print(f"Time spent on reloading normaliser and slides: {end-start}s")
 
     initial_transform = sitk.CenteredTransformInitializer(
@@ -153,13 +143,11 @@ if __name__ == "__main__":
         print("Affine mutual information metric: {0}".format(affine_mutual_info))
     # performance_df.loc[SLIDE_NUM, "Affine_Mutual_Info"] = affine_mutual_info Figure out how to add this
 
-    # print_info(moving_resampled_affine, "MOVING RESAMPLED AFFINE")
-    # print_info(affine_transform, "AFFINE TRANSFORM")
     dump_sitk_image(
         sitk_image=moving_resampled_affine,
-        data_name=MOVING_RESAMPLED_AFFINE,
+        data_name=MOVING_RESAMPLED_AFFINE_NPY,
         subdir=PREFIX,
     )
     dump_sitk_transform(
-        sitk_transform=affine_transform, data_name=AFFINE_TRANSFORM_PKL, subdir=PREFIX
+        sitk_transform=affine_transform, data_name=AFFINE_TRANSFORM_HDF, subdir=PREFIX
     )

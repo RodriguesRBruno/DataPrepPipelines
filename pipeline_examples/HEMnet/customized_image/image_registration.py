@@ -1,14 +1,15 @@
 import argparse
 from mod_utils import (
-    load_slides_by_prefix,
+    load_and_magnify_slides_by_prefix,
     save_img,
     load_data,
-    dump_data,
+    dump_pil_image,
+    get_fixed_and_moving_images,
+    dump_data
 )
 import SimpleITK as sitk
-from mod_constants import OUTPUT_PATH, INTERPOLATOR, NORMALISER_PKL
+from mod_constants import OUTPUT_PATH, INTERPOLATOR, NORMALISER_PKL, HE_NORM, HE_GRAY, TP53_GRAY
 from utils import (
-    get_itk_from_pil,
     sitk_transform_rgb,
     PlotImageAlignment,
     show_alignment,
@@ -48,14 +49,14 @@ if __name__ == "__main__":
 
     print("Processing Slide: {0}".format(PREFIX))
 
-    he, tp53 = load_slides_by_prefix(PREFIX, ALIGNMENT_MAG)
+    he, tp53 = load_and_magnify_slides_by_prefix(PREFIX, ALIGNMENT_MAG)
     normaliser = load_data(data_name=NORMALISER_PKL)
 
     # Normalise H&E Slide
     normaliser.fit_source(he)
     he_norm = normaliser.transform_tile(he)
-    dump_data(data_name=NORMALISER_PKL, data_obj=normaliser, subdir=PREFIX)
-
+    dump_data(data_obj=normaliser, data_name=NORMALISER_PKL, subdir=PREFIX)
+    
     if VERBOSE:
         save_img(
             he_norm.convert("RGB"),
@@ -70,12 +71,14 @@ if __name__ == "__main__":
     # Convert to grayscale
     tp53_gray = tp53.convert("L")
     he_gray = he_norm.convert("L")
-    # Convert to ITK format
-    tp53_itk = get_itk_from_pil(tp53_gray)
-    he_itk = get_itk_from_pil(he_gray)
+
+    # Dump images necessary for future steps
+    dump_pil_image(he_norm, HE_NORM, PREFIX)
+    dump_pil_image(he_gray, HE_GRAY, PREFIX)
+    dump_pil_image(tp53_gray, TP53_GRAY, PREFIX)
+    
     # Set fixed and moving images
-    fixed_img = he_itk
-    moving_img = tp53_itk
+    fixed_img, moving_img = get_fixed_and_moving_images(tp53_gray, he_gray)
 
     # Check initial registration
     # Centre the two images, then compare their alignment

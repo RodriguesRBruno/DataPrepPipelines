@@ -1,13 +1,14 @@
-import argparse
 import os
 from openslide import open_slide
-from mod_constants import INPUT_PATH, TEMP_DATA_PATH
+from mod_constants import INPUT_PATH, TEMP_DATA_PATH, NORMALISER_PKL
 from slide import read_slide_at_mag
 from normaliser import IterativeNormaliser
 import pickle
 import SimpleITK as sitk
 import numpy as np
-from utils import get_pil_from_itk, get_itk_from_pil
+from utils import get_pil_from_itk
+from PIL import Image
+from utils import get_itk_from_pil
 
 
 def save_img(img, path, img_type):
@@ -16,17 +17,6 @@ def save_img(img, path, img_type):
 
 def save_fig(fig, path, dpi=300):
     fig.savefig(path, dpi=dpi)
-
-
-def restricted_float(x):
-    # Restrict argument to float between 0 and 1 (inclusive)
-    try:
-        x = float(x)
-    except ValueError:
-        raise argparse.ArgumentTypeError("{0} not a floating point literal".format(x))
-    if x < 0.0 or x > 1.0:
-        raise argparse.ArgumentTypeError("{0} not in range [0.0, 1.0]".format(x))
-    return x
 
 
 def create_target_fitted_normaliser(
@@ -71,19 +61,37 @@ def _get_saved_file_full_path(filename, subdir: str = None):
     return full_pickle_path
 
 
-def dump_sitk_image(sitk_image, data_name: str, subdir: str = None):
-    print(f"Dumping image {data_name} as a numpy array...")
+def dump_numpy_array(np_array, data_name: str, subdir: str = None):
     np_path = _get_saved_file_full_path(data_name, subdir)
-    as_pil = get_pil_from_itk(sitk_image)
-    as_np = np.array(as_pil)
     with open(np_path, "wb") as f:
-        np.save(f, as_np)
+        np.save(f, np_array)
+
+
+def load_numpy_array(data_name: str, subdir: str = None):
+    np_path = _get_saved_file_full_path(data_name, subdir)
+    with open(np_path, "rb") as f:
+        np_array = np.load(f)
+    return np_array
+
+
+def dump_pil_image(pil_image, data_name: str, subdir: str = None):
+    as_np = np.array(pil_image)
+    dump_numpy_array(as_np, data_name, subdir)
+
+
+def load_pil_image(data_name: str, subdir: str = None):
+    as_np = load_numpy_array(data_name, subdir)
+    pil_image = Image.fromarray(as_np)
+    return pil_image
+
+
+def dump_sitk_image(sitk_image, data_name: str, subdir: str = None):
+    as_pil = get_pil_from_itk(sitk_image)
+    dump_pil_image(as_pil, data_name, subdir)
 
 
 def load_sitk_image(data_name, subdir: str = None):
-    np_path = _get_saved_file_full_path(data_name, subdir)
-    with open(np_path, "rb") as f:
-        as_np = np.load(f)
+    as_np = load_numpy_array(data_name, subdir)
     as_itk = sitk.GetImageFromArray(as_np)
     return as_itk
 
@@ -97,8 +105,8 @@ def dump_sitk_transform(
     sitk_transform.WriteTransform(transform_path)
 
 
-def load_stik_transform(data_name, subdir: str = None):
-    transform_path = _get_saved_file_full_path(data_name, subdir)
+def load_sitk_transform(data_name, subdir: str = None):
+    transform_path = str(_get_saved_file_full_path(data_name, subdir))
     sitk_transform = sitk.ReadTransform(transform_path)
     return sitk_transform
 
@@ -118,7 +126,7 @@ def load_data(data_name: str, subdir: str = None):
     return normalizer_obj
 
 
-def load_slides_by_prefix(prefix: str, aligment_mag: float):
+def load_slides_by_prefix(prefix: str):
     print(f"Loading slides with prefix {prefix}")
     input_dir_str = str(INPUT_PATH)
     relevant_filenames = [file for file in os.listdir(input_dir_str) if prefix in file]
@@ -131,18 +139,75 @@ def load_slides_by_prefix(prefix: str, aligment_mag: float):
     tp53_slide = open_slide(tp53_path)
     he_slide = open_slide(he_path)
 
+    print(f"Successfully loaded slides with prefix {prefix}.")
+    return he_slide, tp53_slide
+
+
+def load_and_magnify_slides_by_prefix(prefix: str, aligment_mag: float):
+    he_slide, tp53_slide = load_slides_by_prefix(prefix)
+
     # Load Slides
     he = read_slide_at_mag(he_slide, aligment_mag)
     tp53 = read_slide_at_mag(tp53_slide, aligment_mag)
-    print(
-        f"Successfully loaded slides with prefix {prefix}.\nSlides loaded:\n{' '.join(relevant_filepaths)}"
-    )
+    print(f"Successfully loaded and magnified slides with prefix {prefix}.")
     return he, tp53
 
 
-def print_info(some_ob, starter_str):
-    print(starter_str)
-    print(some_ob)
-    print(type(some_ob))
-    print(some_ob.__dict__)
-    print("-------------------------------")
+def get_fixed_and_moving_images(tp53_gray, he_gray):
+    # Convert to ITK format
+    tp53_itk = get_itk_from_pil(tp53_gray)
+    he_itk = get_itk_from_pil(he_gray)
+
+    fixed_img = he_itk
+    moving_img = tp53_itk
+
+    return fixed_img, moving_img
+
+def save_train_tiles(path, tile_gen, cancer_mask, tissue_mask, uncertain_mask, prefix = '', verbose: bool = False):
+    """Save tiles for train dataset
+
+    Parameters
+    ----------
+    path : Pathlib Path
+    tile_gen : tile_gen
+    cancer_mask : ndarray
+    tissue_mask : ndarray
+    uncertain_mask : ndarray
+    prefix : str (optional)
+
+    Returns
+    -------
+    None
+    """
+    normaliser = load_data(data_name=NORMALISER_PKL, subdir=prefix)
+    os.makedirs(path.joinpath('cancer'), exist_ok = True)
+    os.makedirs(path.joinpath('non-cancer'), exist_ok = True)
+    os.makedirs(path.joinpath('uncertain'), exist_ok = True)
+    x_tiles, y_tiles = next(tile_gen)
+
+    if verbose:
+        print('Whole Image Size is {0} x {1}'.format(x_tiles, y_tiles))
+    i = 0
+    cancer = 0
+    uncertain = 0
+    non_cancer = 0
+    for tile in tile_gen:
+        img = tile.convert('RGB')
+        ###
+        img_norm = normaliser.transform_tile(img)
+        ###
+        # Name tile as horizontal position _ vertical position starting at (0,0)
+        tile_name = prefix + str(np.floor_divide(i,x_tiles)) + '_' +  str(i%x_tiles)
+        if uncertain_mask.ravel()[i] == 0:
+            img_norm.save(path.joinpath('uncertain', tile_name + '.jpeg'), 'JPEG')
+            uncertain += 1
+        elif cancer_mask.ravel()[i] == 0:
+            img_norm.save(path.joinpath('cancer', tile_name + '.jpeg'), 'JPEG')
+            cancer += 1
+        elif tissue_mask.ravel()[i] == 0:
+            img_norm.save(path.joinpath('non-cancer', tile_name + '.jpeg'), 'JPEG')
+            non_cancer += 1
+        i += 1
+    if verbose:
+        print('Cancer tiles: {0}, Non Cancer tiles: {1}, Uncertain tiles: {2}'.format(cancer, non_cancer, uncertain))
+        print('Exported tiles for {0}'.format(prefix))
