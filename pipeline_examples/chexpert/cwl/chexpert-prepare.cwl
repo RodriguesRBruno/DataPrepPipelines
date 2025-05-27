@@ -27,16 +27,9 @@ inputs:
       position: 3
       prefix: --parameters_file
 
-  # output_path:
-  #   type: Directory
-  #   inputBinding:
-  #     position: 4
-  #     prefix: --output_path
-
 outputs:
   output_dir:
     type: Directory
     outputBinding:
       glob: $(runtime.outdir)
-    # listing: "*.jpg"
     
