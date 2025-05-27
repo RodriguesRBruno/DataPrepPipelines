@@ -1,0 +1,9 @@
+data_path: 
+  class: Directory
+  path: ../workspace/CheXPert-v1.0-small
+labels_path: 
+  class: Directory
+  path: ../workspace/CheXPert-v1.0-small
+parameters_file: 
+  class: File 
+  path: ../workspace/parameters.yaml
