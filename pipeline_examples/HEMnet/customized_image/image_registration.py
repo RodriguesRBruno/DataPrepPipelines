@@ -6,6 +6,9 @@ from mod_utils import (
     dump_pil_image,
     get_fixed_and_moving_images,
     dump_data,
+    get_slide_names_by_prefix,
+    get_template_slide_from_dir,
+    dump_df,
 )
 import SimpleITK as sitk
 from mod_constants import (
@@ -24,6 +27,8 @@ from utils import (
     get_pil_from_itk,
 )
 import numpy as np
+import os
+import pandas as pd
 
 
 if __name__ == "__main__":
@@ -56,6 +61,9 @@ if __name__ == "__main__":
 
     print("Running Image Registration step on Slide: {0}".format(PREFIX))
 
+    template_slide_name = get_template_slide_from_dir()
+    template_slide_name = os.path.basename(template_slide_name)
+    he_name, tp53_name = get_slide_names_by_prefix(PREFIX)
     he, tp53 = load_and_magnify_slides_by_prefix(PREFIX, ALIGNMENT_MAG)
     normaliser = load_data(data_name=NORMALISER_PKL)
 
@@ -146,4 +154,12 @@ if __name__ == "__main__":
     )
     if VERBOSE:
         print("Initial mutual information metric: {0}".format(initial_mutual_info))
-    # performance_df.loc[SLIDE_NUM, "Affine_Mutual_Info"] = affine_mutual_info  # Figure out how to add this
+
+    info_dict = {
+        "TP53_Slide_Name": tp53_name,
+        "H&E_Slide_Name": he_name,
+        "Template_Slide_Name": template_slide_name,
+        "Initial_Mutual_Info": initial_mutual_info,
+    }
+    performance_df = pd.DataFrame([info_dict])
+    dump_df(performance_df, subdir=PREFIX)

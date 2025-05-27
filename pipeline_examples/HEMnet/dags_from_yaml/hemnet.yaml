@@ -1,6 +1,6 @@
 base_step: &BASE_STEP
   - type: container
-    image: local/hemnet:0.0.5
+    image: local/hemnet:0.0.7
     mounts:  
       - ${WORKSPACE_DIR}:/workspace
       - ${INPUT_DATA_DIR}:/workspace/input_data
@@ -26,7 +26,7 @@ steps:
     limit: 1
     cpu_share: 2
     mem_limit: 3g
-    
+
   - id: bspline_registration
     <<: *BASE_STEP 
     command: python bspline_registration.py -v
@@ -44,9 +44,15 @@ steps:
   - id: save_tiles
     <<: *BASE_STEP
     command: python save_tiles.py -v
-    next: cleanup
+    next: consolidate_metrics
     limit: 2
-    
+  
+  - id: consolidate_metrics
+    <<: *BASE_STEP
+    command: python consolidate_metrics.py
+    next: null
+    per_subject: false
+
   - id: cleanup
     <<: *BASE_STEP
     per_subject: false

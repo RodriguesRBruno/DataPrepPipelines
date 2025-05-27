@@ -1,5 +1,5 @@
 import argparse
-from mod_utils import load_numpy_array, load_slides_by_prefix, save_train_tiles
+from mod_utils import load_numpy_array, load_slides_by_prefix, save_train_tiles, load_df, dump_df
 from mod_constants import (
     OUTPUT_PATH,
     U_MASK_FILTERED,
@@ -79,6 +79,7 @@ if __name__ == "__main__":
     c_mask_filtered = load_numpy_array(C_MASK_FILTERED, PREFIX)
     non_c_mask_filtered = (load_numpy_array(NON_C_MASK_FILTERED, PREFIX),)
     t_mask_filtered = load_numpy_array(T_MASK_FILTERED, PREFIX)
+    performance_df = load_df(subdir=PREFIX)
     end = time.perf_counter()
     print(f"Time spent on reloading normaliser and slides: {end-start}s")
 
@@ -107,6 +108,8 @@ if __name__ == "__main__":
 
     cancer_tiles = np.invert(c_mask_filtered).sum()
 
-    # performance_df.loc[SLIDE_NUM, "Cancer_Tiles"] = cancer_tiles
-    # performance_df.loc[SLIDE_NUM, "Uncertain_Tiles"] = uncertain_tiles
-    # performance_df.loc[SLIDE_NUM, "Non_Cancer_Tiles"] = non_cancer_tiles
+    performance_df["Cancer_Tiles"] = cancer_tiles
+    performance_df["Uncertain_Tiles"] = uncertain_tiles
+    performance_df["Non_Cancer_Tiles"] = non_cancer_tiles
+
+    dump_df(performance_df, subdir=PREFIX)

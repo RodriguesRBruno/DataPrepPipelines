@@ -1,6 +1,6 @@
 import os
 from openslide import open_slide
-from mod_constants import INPUT_PATH, TEMP_DATA_PATH, NORMALISER_PKL
+from mod_constants import INPUT_PATH, TEMP_DATA_PATH, NORMALISER_PKL, PERFORMANCE_DF
 from slide import read_slide_at_mag
 from normaliser import IterativeNormaliser
 import pickle
@@ -9,6 +9,7 @@ import numpy as np
 from utils import get_pil_from_itk
 from PIL import Image
 from utils import get_itk_from_pil
+import pandas as pd
 
 
 def save_img(img, path, img_type):
@@ -19,25 +20,29 @@ def save_fig(fig, path, dpi=300):
     fig.savefig(path, dpi=dpi)
 
 
-def create_target_fitted_normaliser(
-    template_slide_path, alignment_mag, normaliser_method, standardise_luminosity
-) -> IterativeNormaliser:
-    if template_slide_path is None:
-        input_dir = str(INPUT_PATH)
-        template_dir = os.path.join(input_dir, "template")
-        try:
-            slides = [
-                file for file in os.listdir(template_dir) if file.endswith(".svs")
-            ]
-            template_slide_path = os.path.join(template_dir, slides[0])
-            if len(slides) > 1:
-                print(
-                    f"More than 1 slide found at {template_dir}. Using {template_slide_path} as the template."
-                )
-        except OSError:
-            raise ValueError(
-                f"Please provide an explicit template slide either with the -t option or by setting a single .svs file at the {os.path.join(template_dir)} directory!"
+def get_template_slide_from_dir(template_slide_path: str = None):
+    input_dir = str(INPUT_PATH)
+    template_dir = os.path.join(input_dir, "template")
+    try:
+        slides = [file for file in os.listdir(template_dir) if file.endswith(".svs")]
+
+        template_slide_path = os.path.join(template_dir, slides[0])
+
+        if len(slides) > 1:
+            print(
+                f"More than 1 slide found at {template_dir}. Using {template_slide_path} as the template."
             )
+    except OSError:
+        raise ValueError(
+            f"Please provide an explicit template slide either with the -t option or by setting a single .svs file at the {os.path.join(template_dir)} directory!"
+        )
+    return template_slide_path
+
+
+def create_target_fitted_normaliser(
+    alignment_mag, normaliser_method, standardise_luminosity
+) -> IterativeNormaliser:
+    template_slide_path = get_template_slide_from_dir()
 
     print(
         f"Using slide located at {template_slide_path} as the template to instantiate normaliser."
@@ -126,12 +131,34 @@ def load_data(data_name: str, subdir: str = None):
     return normalizer_obj
 
 
+def dump_df(df: pd.DataFrame, df_name: str = PERFORMANCE_DF, subdir: str = None):
+    full_path = _get_saved_file_full_path(df_name, subdir)
+    df.to_csv(full_path, encoding="utf-8")
+
+
+def load_df(df_name: str = PERFORMANCE_DF, subdir: str = None):
+    full_path = _get_saved_file_full_path(df_name, subdir)
+    df = pd.read_csv(full_path, encoding="utf-8", index_col=0)
+    return df
+
+
+def get_slide_names_by_prefix(prefix: str):
+    relevant_filenames = sorted(
+        [file for file in os.listdir(INPUT_PATH) if prefix in file],
+        key=lambda file: (
+            file.split("_")[0],
+            file.split("_")[-1],
+        ),  # Order by prefix (integer) then by suffix (HandE first, then TP53)
+    )
+    he_name, tp53_name = relevant_filenames
+    return he_name, tp53_name
+
+
 def load_slides_by_prefix(prefix: str):
     print(f"Loading slides with prefix {prefix}")
-    input_dir_str = str(INPUT_PATH)
-    relevant_filenames = [file for file in os.listdir(input_dir_str) if prefix in file]
+    relevant_filenames = get_slide_names_by_prefix(prefix)
     relevant_filepaths = sorted(
-        [os.path.join(input_dir_str, file) for file in relevant_filenames]
+        [os.path.join(INPUT_PATH, file) for file in relevant_filenames]
     )
 
     he_path, tp53_path = relevant_filepaths
@@ -163,7 +190,16 @@ def get_fixed_and_moving_images(tp53_gray, he_gray):
 
     return fixed_img, moving_img
 
-def save_train_tiles(path, tile_gen, cancer_mask, tissue_mask, uncertain_mask, prefix = '', verbose: bool = False):
+
+def save_train_tiles(
+    path,
+    tile_gen,
+    cancer_mask,
+    tissue_mask,
+    uncertain_mask,
+    prefix="",
+    verbose: bool = False,
+):
     """Save tiles for train dataset
 
     Parameters
@@ -180,34 +216,38 @@ def save_train_tiles(path, tile_gen, cancer_mask, tissue_mask, uncertain_mask, p
     None
     """
     normaliser = load_data(data_name=NORMALISER_PKL, subdir=prefix)
-    os.makedirs(path.joinpath('cancer'), exist_ok = True)
-    os.makedirs(path.joinpath('non-cancer'), exist_ok = True)
-    os.makedirs(path.joinpath('uncertain'), exist_ok = True)
+    os.makedirs(path.joinpath("cancer"), exist_ok=True)
+    os.makedirs(path.joinpath("non-cancer"), exist_ok=True)
+    os.makedirs(path.joinpath("uncertain"), exist_ok=True)
     x_tiles, y_tiles = next(tile_gen)
 
     if verbose:
-        print('Whole Image Size is {0} x {1}'.format(x_tiles, y_tiles))
+        print("Whole Image Size is {0} x {1}".format(x_tiles, y_tiles))
     i = 0
     cancer = 0
     uncertain = 0
     non_cancer = 0
     for tile in tile_gen:
-        img = tile.convert('RGB')
+        img = tile.convert("RGB")
         ###
         img_norm = normaliser.transform_tile(img)
         ###
         # Name tile as horizontal position _ vertical position starting at (0,0)
-        tile_name = prefix + str(np.floor_divide(i,x_tiles)) + '_' +  str(i%x_tiles)
+        tile_name = prefix + str(np.floor_divide(i, x_tiles)) + "_" + str(i % x_tiles)
         if uncertain_mask.ravel()[i] == 0:
-            img_norm.save(path.joinpath('uncertain', tile_name + '.jpeg'), 'JPEG')
+            img_norm.save(path.joinpath("uncertain", tile_name + ".jpeg"), "JPEG")
             uncertain += 1
         elif cancer_mask.ravel()[i] == 0:
-            img_norm.save(path.joinpath('cancer', tile_name + '.jpeg'), 'JPEG')
+            img_norm.save(path.joinpath("cancer", tile_name + ".jpeg"), "JPEG")
             cancer += 1
         elif tissue_mask.ravel()[i] == 0:
-            img_norm.save(path.joinpath('non-cancer', tile_name + '.jpeg'), 'JPEG')
+            img_norm.save(path.joinpath("non-cancer", tile_name + ".jpeg"), "JPEG")
             non_cancer += 1
         i += 1
     if verbose:
-        print('Cancer tiles: {0}, Non Cancer tiles: {1}, Uncertain tiles: {2}'.format(cancer, non_cancer, uncertain))
-        print('Exported tiles for {0}'.format(prefix))
+        print(
+            "Cancer tiles: {0}, Non Cancer tiles: {1}, Uncertain tiles: {2}".format(
+                cancer, non_cancer, uncertain
+            )
+        )
+        print("Exported tiles for {0}".format(prefix))

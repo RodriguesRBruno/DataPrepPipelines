@@ -5,6 +5,8 @@ from mod_utils import (
     dump_sitk_transform,
     dump_sitk_image,
     get_fixed_and_moving_images,
+    load_df,
+    dump_df,
 )
 import matplotlib.pyplot as plt
 import SimpleITK as sitk
@@ -63,6 +65,7 @@ if __name__ == "__main__":
     tp53_gray = load_pil_image(TP53_GRAY, PREFIX)
     he_gray = load_pil_image(HE_GRAY, PREFIX)
     fixed_img, moving_img = get_fixed_and_moving_images(tp53_gray, he_gray)
+    performance_df = load_df(subdir=PREFIX)
     end = time.perf_counter()
 
     print(f"Time spent on reloading normaliser and slides: {end-start}s")
@@ -141,7 +144,10 @@ if __name__ == "__main__":
     )
     if VERBOSE:
         print("Affine mutual information metric: {0}".format(affine_mutual_info))
-    # performance_df.loc[SLIDE_NUM, "Affine_Mutual_Info"] = affine_mutual_info Figure out how to add this
+
+    performance_df["Affine_Mutual_Info"] = affine_mutual_info
+
+    dump_df(performance_df, subdir=PREFIX)
 
     dump_sitk_image(
         sitk_image=moving_resampled_affine,

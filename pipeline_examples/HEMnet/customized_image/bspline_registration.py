@@ -8,6 +8,8 @@ from mod_utils import (
     load_pil_image,
     get_fixed_and_moving_images,
     load_and_magnify_slides_by_prefix,
+    load_df,
+    dump_df,
 )
 import matplotlib.pyplot as plt
 import SimpleITK as sitk
@@ -83,6 +85,7 @@ if __name__ == "__main__":
     affine_transform = load_sitk_transform(
         data_name=AFFINE_TRANSFORM_HDF, subdir=PREFIX
     )
+    performance_df = load_df(subdir=PREFIX)
     end = time.perf_counter()
     print(f"Time spent on reloading images and transforms: {end-start}s")
 
@@ -159,8 +162,8 @@ if __name__ == "__main__":
     )
     if VERBOSE:
         print("B-spline mutual information metric: {0}".format(bspline_mutual_info))
-    # TODO figure out how to add this
-    # performance_df.loc[SLIDE_NUM, "Final_Mutual_Info"] = bspline_mutual_info
+
+    performance_df["Final_Mutual_Info"] = bspline_mutual_info
 
     # Transform the original TP53 into the aligned TP53 image
     moving_rgb_affine = sitk_transform_rgb(
@@ -201,6 +204,8 @@ if __name__ == "__main__":
     he_filtered = filter_green(he_norm)
     tp53_filtered = filter_grays(tp53_filtered, tolerance=2)
     he_filtered = filter_grays(he_filtered, tolerance=15)
+
+    dump_df(performance_df, subdir=PREFIX)
 
     dump_pil_image(
         pil_image=tp53_filtered,
