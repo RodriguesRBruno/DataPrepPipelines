@@ -2,7 +2,7 @@
 
 import typer
 import os
-from stages.env_vars import WORKSPACE_DIR, DATA_DIR, INPUT_DIR
+from stages.env_vars import WORKSPACE_DIR, DATA_DIR, INPUT_DIR, RAW_DATA_DIR
 from stages.utils import get_aux_files_dir, get_data_csv_filepath, convert_path_to_index
 from stages.mlcube_constants import (
     RAW_PATH,
@@ -31,14 +31,13 @@ app = typer.Typer()
 def initial_setup():
     from stages.generate_report import InitialSetup
 
-    raw_dir = os.path.join(DATA_DIR, RAW_PATH)
     labels_out_dir = os.path.join(WORKSPACE_DIR, LABELS_PATH)
     brain_out = os.path.join(DATA_DIR, BRAIN_PATH)
     tumor_out = os.path.join(DATA_DIR, TUMOR_PATH)
     report_generator = InitialSetup(
         data_csv=None,
         input_path=INPUT_DIR,
-        output_path=raw_dir,
+        output_path=RAW_DATA_DIR,
         input_labels_path=INPUT_DIR,
         output_labels_path=labels_out_dir,
         done_data_out_path=DATA_DIR,
@@ -51,6 +50,25 @@ def initial_setup():
     report_generator.execute(None)
 
 
+@app.command("get_subject_directories")
+def get_subject_directories():
+    subject_slash_timepoint_list = []
+
+    for subject_id_dir in os.listdir(RAW_DATA_DIR):
+        subject_complete_dir = os.path.join(RAW_DATA_DIR, subject_id_dir)
+
+        if not os.path.isdir(subject_complete_dir):
+            continue
+
+        for timepoint_dir in os.listdir(subject_complete_dir):
+            subject_slash_timepoint_list.append(
+                os.path.join(subject_id_dir, timepoint_dir)
+            )
+
+    print(subject_slash_timepoint_list)
+    return subject_slash_timepoint_list
+
+
 @app.command("make_csv")
 def prepare(
     subject_subdir: str = typer.Option(..., "--subject-subdir"),
@@ -59,15 +77,16 @@ def prepare(
         AddToCSV,
     )
 
+    print(f"{subject_subdir}=")
     output_csv_dir = get_aux_files_dir(subject_subdir)
     os.makedirs(output_csv_dir, exist_ok=True)
     output_csv = get_data_csv_filepath(subject_subdir)
     out_dir = os.path.join(DATA_DIR, VALID_PATH)
     csv_creator = AddToCSV(
-        input_dir=INPUT_DIR,
+        input_dir=RAW_DATA_DIR,
         output_csv=output_csv,
         out_dir=out_dir,
-        prev_stage_path=INPUT_DIR,
+        prev_stage_path=RAW_DATA_DIR,
     )
     subject_index = convert_path_to_index(subject_subdir)
     csv_creator.execute(subject_index)
@@ -89,7 +108,7 @@ def convert_nifti(
     nifti_transform = NIfTITransform(
         data_csv=csv_path,
         out_path=output_path,
-        prev_stage_path=INPUT_DIR,
+        prev_stage_path=RAW_DATA_DIR,
         metadata_path=metadata_path,
         data_out=DATA_DIR,
     )
