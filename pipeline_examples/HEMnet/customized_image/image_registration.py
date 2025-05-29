@@ -2,10 +2,10 @@ import argparse
 from mod_utils import (
     load_and_magnify_slides_by_prefix,
     save_img,
-    load_data,
+    load_normaliser,
     dump_pil_image,
     get_fixed_and_moving_images,
-    dump_data,
+    dump_normaliser,
     get_slide_names_by_prefix,
     get_template_slide_from_dir,
     dump_df,
@@ -50,10 +50,15 @@ if __name__ == "__main__":
     parser.add_argument(
         "-v", "--verbosity", action="store_true", help="Increase output verbosity"
     )
-
+    parser.add_argument(
+        "-n",
+        "--normaliser-path",
+        help="Path to normaliser.pkl from normalisation step.",
+    )
     args = parser.parse_args()
     # PATHS
     PREFIX = args.subject_subdir
+    NORMALISER_PATH = args.normaliser_path
 
     # User selectable parameters
     ALIGNMENT_MAG = args.align_mag
@@ -65,12 +70,12 @@ if __name__ == "__main__":
     template_slide_name = os.path.basename(template_slide_name)
     he_name, tp53_name = get_slide_names_by_prefix(PREFIX)
     he, tp53 = load_and_magnify_slides_by_prefix(PREFIX, ALIGNMENT_MAG)
-    normaliser = load_data(data_name=NORMALISER_PKL)
+    normaliser = load_normaliser(data_name=NORMALISER_PKL, fullpath=NORMALISER_PATH)
 
     # Normalise H&E Slide
     normaliser.fit_source(he)
     he_norm = normaliser.transform_tile(he)
-    dump_data(data_obj=normaliser, data_name=NORMALISER_PKL, subdir=PREFIX)
+    dump_normaliser(data_obj=normaliser, data_name=NORMALISER_PKL, subdir=PREFIX)
 
     if VERBOSE:
         save_img(

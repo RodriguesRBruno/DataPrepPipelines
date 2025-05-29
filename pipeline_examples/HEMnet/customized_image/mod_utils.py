@@ -13,10 +13,14 @@ import pandas as pd
 
 
 def save_img(img, path, img_type):
+    dir_to_save = os.path.dirname(path)
+    os.makedirs(dir_to_save, exist_ok=True)
     img.save(path, img_type)
 
 
 def save_fig(fig, path, dpi=300):
+    dir_to_save = os.path.dirname(path)
+    os.makedirs(dir_to_save, exist_ok=True)
     fig.savefig(path, dpi=dpi)
 
 
@@ -56,7 +60,10 @@ def create_target_fitted_normaliser(
     return normaliser
 
 
-def _get_saved_file_full_path(filename, subdir: str = None):
+def _get_saved_file_full_path(filename, subdir: str = None, fullpath: str = None):
+    if fullpath is not None:
+        print(f"Full path provided: {fullpath}")
+        return fullpath
     os.makedirs(TEMP_DATA_PATH, exist_ok=True)
     data_dir = TEMP_DATA_PATH
     if subdir is not None:
@@ -72,8 +79,8 @@ def dump_numpy_array(np_array, data_name: str, subdir: str = None):
         np.save(f, np_array)
 
 
-def load_numpy_array(data_name: str, subdir: str = None):
-    np_path = _get_saved_file_full_path(data_name, subdir)
+def load_numpy_array(data_name: str, subdir: str = None, fullpath: str = None):
+    np_path = _get_saved_file_full_path(data_name, subdir, fullpath)
     with open(np_path, "rb") as f:
         np_array = np.load(f)
     return np_array
@@ -84,19 +91,21 @@ def dump_pil_image(pil_image, data_name: str, subdir: str = None):
     dump_numpy_array(as_np, data_name, subdir)
 
 
-def load_pil_image(data_name: str, subdir: str = None):
-    as_np = load_numpy_array(data_name, subdir)
+def load_pil_image(data_name: str, subdir: str = None, fullpath: str = None):
+    as_np = load_numpy_array(data_name, subdir, fullpath)
     pil_image = Image.fromarray(as_np)
     return pil_image
 
 
-def dump_sitk_image(sitk_image, data_name: str, subdir: str = None):
+def dump_sitk_image(
+    sitk_image, data_name: str, subdir: str = None, fullpath: str = None
+):
     as_pil = get_pil_from_itk(sitk_image)
     dump_pil_image(as_pil, data_name, subdir)
 
 
-def load_sitk_image(data_name, subdir: str = None):
-    as_np = load_numpy_array(data_name, subdir)
+def load_sitk_image(data_name, subdir: str = None, fullpath: str = None):
+    as_np = load_numpy_array(data_name, subdir, fullpath)
     as_itk = sitk.GetImageFromArray(as_np)
     return as_itk
 
@@ -104,40 +113,41 @@ def load_sitk_image(data_name, subdir: str = None):
 def dump_sitk_transform(
     sitk_transform: sitk.Transform, data_name: str, subdir: str = None
 ):
-    print(f"Dumping SITK transform {data_name}...")
     transform_path = str(_get_saved_file_full_path(data_name, subdir))
     sitk_transform.FlattenTransform()
     sitk_transform.WriteTransform(transform_path)
 
 
-def load_sitk_transform(data_name, subdir: str = None):
-    transform_path = str(_get_saved_file_full_path(data_name, subdir))
+def load_sitk_transform(data_name, subdir: str = None, fullpath: str = None):
+    transform_path = str(_get_saved_file_full_path(data_name, subdir, fullpath))
     sitk_transform = sitk.ReadTransform(transform_path)
     return sitk_transform
 
 
-def dump_data(data_obj, data_name: str, subdir: str = None):
+def dump_normaliser(data_obj, data_name: str, subdir: str = None):
     full_path = _get_saved_file_full_path(data_name, subdir)
     with open(full_path, "wb") as f:
         pickle.dump(data_obj, f)
-    print(f"Successfully dumped object {data_name} at {full_path}.")
 
 
-def load_data(data_name: str, subdir: str = None):
-    full_path = _get_saved_file_full_path(data_name, subdir)
+def load_normaliser(data_name: str, subdir: str = None, fullpath: str = None):
+    full_path = _get_saved_file_full_path(data_name, subdir, fullpath)
     with open(full_path, "rb") as f:
         normalizer_obj = pickle.load(f)
-    print(f"Successfully loaded object {data_name} from {full_path}.")
     return normalizer_obj
 
 
-def dump_df(df: pd.DataFrame, df_name: str = PERFORMANCE_DF, subdir: str = None):
+def dump_df(
+    df: pd.DataFrame,
+    df_name: str = PERFORMANCE_DF,
+    subdir: str = None,
+):
     full_path = _get_saved_file_full_path(df_name, subdir)
     df.to_csv(full_path, encoding="utf-8")
 
 
-def load_df(df_name: str = PERFORMANCE_DF, subdir: str = None):
-    full_path = _get_saved_file_full_path(df_name, subdir)
+def load_df(df_name: str = PERFORMANCE_DF, subdir: str = None, fullpath: str = None):
+    full_path = _get_saved_file_full_path(df_name, subdir, fullpath)
     df = pd.read_csv(full_path, encoding="utf-8", index_col=0)
     return df
 
@@ -199,6 +209,7 @@ def save_train_tiles(
     uncertain_mask,
     prefix="",
     verbose: bool = False,
+    normaliser_path: str = None,
 ):
     """Save tiles for train dataset
 
@@ -215,7 +226,9 @@ def save_train_tiles(
     -------
     None
     """
-    normaliser = load_data(data_name=NORMALISER_PKL, subdir=prefix)
+    normaliser = load_normaliser(
+        data_name=NORMALISER_PKL, subdir=prefix, fullpath=normaliser_path
+    )
     os.makedirs(path.joinpath("cancer"), exist_ok=True)
     os.makedirs(path.joinpath("non-cancer"), exist_ok=True)
     os.makedirs(path.joinpath("uncertain"), exist_ok=True)

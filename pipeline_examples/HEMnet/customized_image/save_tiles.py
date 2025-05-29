@@ -1,5 +1,11 @@
 import argparse
-from mod_utils import load_numpy_array, load_slides_by_prefix, save_train_tiles, load_df, dump_df
+from mod_utils import (
+    load_numpy_array,
+    load_slides_by_prefix,
+    save_train_tiles,
+    load_df,
+    dump_df,
+)
 from mod_constants import (
     OUTPUT_PATH,
     U_MASK_FILTERED,
@@ -58,10 +64,26 @@ if __name__ == "__main__":
     parser.add_argument(
         "-v", "--verbosity", action="store_true", help="Increase output verbosity"
     )
-
+    parser.add_argument("-p", "--performance-csv", type=str)
+    parser.add_argument("-um", "--u-mask", type=str)
+    parser.add_argument("-cm", "--c-mask", type=str)
+    parser.add_argument("-ncm", "--non-c-mask", type=str)
+    parser.add_argument("-tm", "--t-mask", type=str)
+    parser.add_argument(
+        "-n",
+        "--normaliser-path",
+        help="Path to normaliser.pkl from image registration step.",
+    )
     args = parser.parse_args()
+
     # PATHS
     PREFIX = args.subject_subdir
+    U_MASK_PATH = args.u_mask
+    C_MASK_PATH = args.c_mask
+    NON_C_MASK_PATH = args.non_c_mask
+    T_MASK_PATH = args.t_mask
+    PERFORMANCE_CSV_PATH = args.performance_csv
+    NORMALISER_PATH = args.normaliser_path
 
     # User selectable parameters
     ALIGNMENT_MAG = args.align_mag
@@ -75,11 +97,13 @@ if __name__ == "__main__":
 
     start = time.perf_counter()
     he_slide, _ = load_slides_by_prefix(PREFIX)
-    u_mask_filtered = load_numpy_array(U_MASK_FILTERED, PREFIX)
-    c_mask_filtered = load_numpy_array(C_MASK_FILTERED, PREFIX)
-    non_c_mask_filtered = (load_numpy_array(NON_C_MASK_FILTERED, PREFIX),)
-    t_mask_filtered = load_numpy_array(T_MASK_FILTERED, PREFIX)
-    performance_df = load_df(subdir=PREFIX)
+    u_mask_filtered = load_numpy_array(U_MASK_FILTERED, PREFIX, fullpath=U_MASK_PATH)
+    c_mask_filtered = load_numpy_array(C_MASK_FILTERED, PREFIX, fullpath=C_MASK_PATH)
+    non_c_mask_filtered = load_numpy_array(
+        NON_C_MASK_FILTERED, PREFIX, fullpath=NON_C_MASK_PATH
+    )
+    t_mask_filtered = load_numpy_array(T_MASK_FILTERED, PREFIX, fullpath=T_MASK_PATH)
+    performance_df = load_df(subdir=PREFIX, fullpath=PERFORMANCE_CSV_PATH)
     end = time.perf_counter()
     print(f"Time spent on reloading normaliser and slides: {end-start}s")
 
@@ -100,6 +124,7 @@ if __name__ == "__main__":
         t_mask_filtered,
         u_mask_filtered,
         prefix=PREFIX,
+        normaliser_path=NORMALISER_PATH,
     )
 
     non_cancer_tiles = np.invert(non_c_mask_filtered).sum()

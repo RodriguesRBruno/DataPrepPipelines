@@ -50,10 +50,16 @@ if __name__ == "__main__":
     parser.add_argument(
         "-v", "--verbosity", action="store_true", help="Increase output verbosity"
     )
+    parser.add_argument("-p", "--performance-csv", type=str)
+    parser.add_argument("-he", "--he-gray", type=str)
+    parser.add_argument("-t", "--tp53-gray", type=str)
 
     args = parser.parse_args()
     # PATHS
     PREFIX = args.subject_subdir
+    PERFORMANCE_CSV_PATH = args.performance_csv
+    TP53_GRAY_PATH = args.tp53_gray
+    HE_GRAY_PATH = args.he_gray
 
     # User selectable parameters
     ALIGNMENT_MAG = args.align_mag
@@ -62,10 +68,10 @@ if __name__ == "__main__":
     print("Runing Affine Registration step on slide: {0}".format(PREFIX))
 
     start = time.perf_counter()
-    tp53_gray = load_pil_image(TP53_GRAY, PREFIX)
-    he_gray = load_pil_image(HE_GRAY, PREFIX)
+    tp53_gray = load_pil_image(TP53_GRAY, PREFIX, fullpath=TP53_GRAY_PATH)
+    he_gray = load_pil_image(HE_GRAY, PREFIX, fullpath=HE_GRAY_PATH)
     fixed_img, moving_img = get_fixed_and_moving_images(tp53_gray, he_gray)
-    performance_df = load_df(subdir=PREFIX)
+    performance_df = load_df(subdir=PREFIX, fullpath=PERFORMANCE_CSV_PATH)
     end = time.perf_counter()
 
     print(f"Time spent on reloading normaliser and slides: {end-start}s")

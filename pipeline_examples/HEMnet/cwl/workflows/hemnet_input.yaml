@@ -1,0 +1,3 @@
+input_data:
+  class: Directory
+  path: absolute/path/to/svs/directory

@@ -61,10 +61,22 @@ if __name__ == "__main__":
     parser.add_argument(
         "-v", "--verbosity", action="store_true", help="Increase output verbosity"
     )
-
+    parser.add_argument("-p", "--performance-csv", type=str)
+    parser.add_argument("-he", "--he-gray", type=str)
+    parser.add_argument("-hen", "--he-norm", type=str)
+    parser.add_argument("-t", "--tp53-gray", type=str)
+    parser.add_argument("-m", "--moving-affine", type=str)
+    parser.add_argument("-aff", "--affine-transform")
     args = parser.parse_args()
+
     # PATHS
     PREFIX = args.subject_subdir
+    PERFORMANCE_CSV_PATH = args.performance_csv
+    TP53_GRAY_PATH = args.tp53_gray
+    HE_GRAY_PATH = args.he_gray
+    HE_NORM_PATH = args.he_norm
+    MOVING_AFFINE_PATH = args.moving_affine
+    AFFINE_TRANSFORM_PATH = args.affine_transform
 
     # User selectable parameters
     ALIGNMENT_MAG = args.align_mag
@@ -74,18 +86,20 @@ if __name__ == "__main__":
 
     start = time.perf_counter()
     he, tp53 = load_and_magnify_slides_by_prefix(PREFIX, ALIGNMENT_MAG)
-    he_norm = load_pil_image(HE_NORM, PREFIX)
-    tp53_gray = load_pil_image(TP53_GRAY, PREFIX)
-    he_gray = load_pil_image(HE_GRAY, PREFIX)
+    he_norm = load_pil_image(HE_NORM, PREFIX, fullpath=HE_NORM_PATH)
+    tp53_gray = load_pil_image(TP53_GRAY, PREFIX, fullpath=TP53_GRAY_PATH)
+    he_gray = load_pil_image(HE_GRAY, PREFIX, fullpath=HE_GRAY_PATH)
     fixed_img, moving_img = get_fixed_and_moving_images(tp53_gray, he_gray)
 
     moving_resampled_affine = load_sitk_image(
-        data_name=MOVING_RESAMPLED_AFFINE_NPY, subdir=PREFIX
+        data_name=MOVING_RESAMPLED_AFFINE_NPY,
+        subdir=PREFIX,
+        fullpath=MOVING_AFFINE_PATH,
     )
     affine_transform = load_sitk_transform(
-        data_name=AFFINE_TRANSFORM_HDF, subdir=PREFIX
+        data_name=AFFINE_TRANSFORM_HDF, subdir=PREFIX, fullpath=AFFINE_TRANSFORM_PATH
     )
-    performance_df = load_df(subdir=PREFIX)
+    performance_df = load_df(subdir=PREFIX, fullpath=PERFORMANCE_CSV_PATH)
     end = time.perf_counter()
     print(f"Time spent on reloading images and transforms: {end-start}s")
 

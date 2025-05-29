@@ -2,7 +2,7 @@ import argparse
 from pathlib import Path
 from mod_utils import (
     create_target_fitted_normaliser,
-    dump_data,
+    dump_normaliser,
 )
 from mod_constants import NORMALISER_PKL
 
@@ -38,5 +38,7 @@ if __name__ == "__main__":
     NORMALISER_METHOD = args.normaliser
     STANDARDISE_LUMINOSITY = args.standardise_luminosity
 
-    normaliser = create_target_fitted_normaliser(ALIGNMENT_MAG, NORMALISER_METHOD, STANDARDISE_LUMINOSITY)
-    dump_data(data_obj=normaliser, data_name=NORMALISER_PKL)
+    normaliser = create_target_fitted_normaliser(
+        ALIGNMENT_MAG, NORMALISER_METHOD, STANDARDISE_LUMINOSITY
+    )
+    dump_normaliser(data_obj=normaliser, data_name=NORMALISER_PKL)

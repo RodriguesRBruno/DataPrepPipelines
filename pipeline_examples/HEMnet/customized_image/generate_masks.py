@@ -63,6 +63,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "-v", "--verbosity", action="store_true", help="Increase output verbosity"
     )
+    parser.add_argument("-hf", "--he-filtered", type=str)
+    parser.add_argument("-tf", "--tp53-filtered", type=str)
 
     args = parser.parse_args()
     # PATHS
@@ -75,12 +77,16 @@ if __name__ == "__main__":
     NON_CANCER_THRESH = args.non_cancer_thresh
     TILE_MAG = args.tile_mag
     OUTPUT_TILE_SIZE = args.tile_size
+    HE_FILTERED_PATH = args.he_filtered
+    TP53_FILTERED_PATH = args.tp53_filtered
 
     print("Running Mask Generation step on Slide: {0}".format(PREFIX))
 
     start = time.perf_counter()
-    he_filtered = load_pil_image(HE_FILTERED_NPY, PREFIX)
-    tp53_filtered = load_pil_image(TP53_FILTERED_NPY, PREFIX)
+    he_filtered = load_pil_image(HE_FILTERED_NPY, PREFIX, fullpath=HE_FILTERED_PATH)
+    tp53_filtered = load_pil_image(
+        TP53_FILTERED_NPY, PREFIX, fullpath=TP53_FILTERED_PATH
+    )
     end = time.perf_counter()
     print(f"Time spent on reloading filtered images: {end-start}s")
     ####################################
