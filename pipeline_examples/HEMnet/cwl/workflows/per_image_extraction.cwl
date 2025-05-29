@@ -23,23 +23,11 @@ outputs:
     
     tiles_dir:
       type: Directory
-      outputSource: save_tiles/tiles_dir
+      outputSource: rename_tiles_dir/renamed_tiles_dir
 
-    verbose_images_registration:
+    verbose_images:
       type: File[]
-      outputSource: image_registration/verbose_images
-
-    verbose_images_affine:
-      type: File[]
-      outputSource: affine_registration/verbose_images
-    
-    verbose_images_bspline:
-      type: File[]
-      outputSource: bspline_registration/verbose_images
-
-    verbose_images_generate_masks:
-      type: File[]
-      outputSource: generate_masks/verbose_images
+      outputSource: merge_verbose_images/merged_images
 
 steps:
   image_registration:
@@ -95,10 +83,18 @@ steps:
       t_mask_filtered: generate_masks/t_mask_filtered
     out: [tiles_dir, performance_csv]
 
-  move_tiles:
-    run: ../individual_steps/move_tiles.cwl
+  merge_verbose_images:
+    run: ../individual_steps/merge_verbose_images.cwl
     in:
+      verbose_images_registration: image_registration/verbose_images
+      verbose_images_affine: affine_registration/verbose_images
+      verbose_images_bspline: bspline_registration/verbose_images
+      verbose_images_generate_masks: generate_masks/verbose_images
+    out: [merged_images]
+
+  rename_tiles_dir:
+    run: ../individual_steps/rename_tiles_dir.cwl
+    in: 
       tiles_dir: save_tiles/tiles_dir
       image_prefix: image_prefix
-    out: [moved_tiles_dir]
-    
+    out: [renamed_tiles_dir]
