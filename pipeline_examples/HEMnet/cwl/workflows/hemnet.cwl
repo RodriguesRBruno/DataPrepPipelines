@@ -9,6 +9,42 @@ requirements:
 
 inputs:
   input_data: Directory
+  alignment_magnify:
+    type: float
+    default: 2
+
+  tile_magnify:
+    type: float
+    default: 10
+
+  output_tile_size:
+    type: int
+    default: 224
+
+  disable_luminosity_standardisation:
+    type: boolean?
+
+  normaliser:
+    type:
+    - type: enum
+      symbols:
+        - vahadane
+        - macenko
+        - reinhard
+        - "none"
+    default: vahadane
+
+  cancer_thresh:
+    type: float
+    default: 0.39
+
+  non_cancer_thresh:
+    type: float
+    default: 0.40
+
+  verbosity:
+    type: boolean
+    default: true
 
 outputs:
     performance_csv:
@@ -42,6 +78,9 @@ steps:
     run: ../individual_steps/normaliser_step.cwl
     in:
       input_data_dir: input_data
+      disable_luminosity_standardisation: disable_luminosity_standardisation
+      alignment_magnify: alignment_magnify
+      normaliser: normaliser
     out: [base_normaliser_pkl]
   
   scatter_images:
@@ -63,6 +102,12 @@ steps:
       input_data_dir: input_data
       base_normaliser_pkl: normaliser_step/base_normaliser_pkl
       image_prefix: convert_file_to_array/image_prefixes_array
+      alignment_magnify: alignment_magnify
+      tile_magnify: tile_magnify
+      output_tile_size: output_tile_size
+      cancer_thresh: cancer_thresh
+      non_cancer_thresh: non_cancer_thresh
+      verbosity: verbosity
     out: [performance_csv, verbose_images, tiles_dir, cancer_tiles, uncertain_tiles, non_cancer_tiles]
 
   merge_cancer_tiles:
@@ -88,12 +133,6 @@ steps:
       final_dir_name: 
         valueFrom: uncertain
     out: [merged_tiles_dir]
-
-  # merge_tiles_dirs:
-  #   run: ../individual_steps/merge_tiles_dirs.cwl
-  #   in:
-  #     tiles_dirs: per_image_extraction/tiles_dir
-  #   out: [merged_tiles_dir]
 
   consolidate_metrics:
     run: ../individual_steps/consolidate_metrics.cwl

@@ -21,6 +21,30 @@ inputs:
   input_data_dir:
     type: Directory
 
+  normaliser:
+    type:
+    - type: enum
+      symbols:
+        - vahadane
+        - macenko
+        - reinhard
+        - "null"
+    default: vahadane
+    inputBinding:
+      position: 2
+      prefix: "--normaliser"
+      
+  alignment_magnify:
+    type: float
+    inputBinding:
+      position: 1
+      prefix: "--align_mag"
+
+  disable_luminosity_standardisation:
+    type: boolean?
+    inputBinding:
+      prefix: "-std"
+      
 outputs:
   base_normaliser_pkl:
     type: File

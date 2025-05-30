@@ -63,7 +63,19 @@ inputs:
       position: 9
       prefix: --t-mask
 
-  
+  tile_magnify:
+    type: float
+    default: 10
+    inputBinding:
+      position: 10
+      prefix: "--align_mag"
+
+  tile_size:
+    type: int
+    default: 224
+    inputBinding:
+      position: 11
+      prefix: "--tile_size"
 
 outputs:
   performance_csv:

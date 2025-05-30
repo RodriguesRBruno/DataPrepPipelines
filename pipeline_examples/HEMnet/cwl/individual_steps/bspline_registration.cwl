@@ -15,7 +15,7 @@ requirements:
       TEMP_DATA_PATH: $(runtime.outdir)/.tmp
 
 baseCommand: python 
-arguments: ["/HEMnet/HEMnet/bspline_registration.py", "-v"]
+arguments: ["/HEMnet/HEMnet/bspline_registration.py"]
 
 inputs:
   input_data_dir:
@@ -63,7 +63,19 @@ inputs:
       position: 9
       prefix: --affine-transform
 
+  alignment_magnify:
+    type: float
+    default: 2
+    inputBinding:
+      position: 10
+      prefix: "--align_mag"
   
+  verbosity:
+    type: boolean
+    default: true
+    inputBinding:
+      position: 11
+      prefix: "-v"
 
 outputs:
   performance_csv:

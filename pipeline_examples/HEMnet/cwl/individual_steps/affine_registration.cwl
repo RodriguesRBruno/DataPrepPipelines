@@ -15,7 +15,7 @@ requirements:
       TEMP_DATA_PATH: $(runtime.outdir)/.tmp
 
 baseCommand: python 
-arguments: ["/HEMnet/HEMnet/affine_registration.py", "-v"]
+arguments: ["/HEMnet/HEMnet/affine_registration.py"]
 
 inputs:
   input_data_dir:
@@ -44,6 +44,21 @@ inputs:
     inputBinding:
       position: 6
       prefix: --subject-subdir
+
+  alignment_magnify:
+    type: float
+    default: 2
+    inputBinding:
+      position: 7
+      prefix: "--align_mag"
+  
+  verbosity:
+    type: boolean
+    default: true
+    inputBinding:
+      position: 6
+      prefix: "-v"
+
 
 outputs:
   performance_csv:

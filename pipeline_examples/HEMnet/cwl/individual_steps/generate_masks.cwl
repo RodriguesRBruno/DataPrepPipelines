@@ -15,7 +15,7 @@ requirements:
       TEMP_DATA_PATH: $(runtime.outdir)/.tmp
 
 baseCommand: python 
-arguments: ["/HEMnet/HEMnet/generate_masks.py", "-v"]
+arguments: ["/HEMnet/HEMnet/generate_masks.py"]
 
 inputs:
   input_data_dir:
@@ -39,6 +39,47 @@ inputs:
       position: 5
       prefix: --tp53-filtered
 
+  alignment_magnify:
+    type: float
+    default: 6
+    inputBinding:
+      position: 7
+      prefix: "--align_mag"
+  
+  tile_magnify:
+    type: float
+    default: 10
+    inputBinding:
+      position: 8
+      prefix: "--tile_mag"
+  
+  tile_size:
+    type: int
+    default: 224
+    inputBinding:
+      position: 9
+      prefix: "--tile_size"
+  
+  cancer_thresh:
+    type: float
+    default: 0.39
+    inputBinding:
+      position: 10
+      prefix: "--cancer_thresh"
+  
+  non_cancer_thresh:
+    type: float
+    default: 0.40
+    inputBinding:
+      position: 11
+      prefix: "--non_cancer_thresh"
+
+  verbosity:
+    type: boolean
+    default: true
+    inputBinding:
+      position: 12
+      prefix: "-v"
 
 outputs:
   verbose_images:
