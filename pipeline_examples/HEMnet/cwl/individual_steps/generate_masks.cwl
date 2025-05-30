@@ -13,7 +13,12 @@ requirements:
       OUTPUT_PATH: $(runtime.outdir)/data
       INPUT_PATH: $(inputs.input_data_dir.path)
       TEMP_DATA_PATH: $(runtime.outdir)/.tmp
-
+  ResourceRequirement:
+    coresMin: 3
+    coresMax: 5
+    ramMin: 3000
+    ramMax: 3800
+    
 baseCommand: python 
 arguments: ["/HEMnet/HEMnet/generate_masks.py"]
 

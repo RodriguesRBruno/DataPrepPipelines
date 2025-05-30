@@ -5,11 +5,7 @@ requirements:
   ScatterFeatureRequirement: {}
   SubworkflowFeatureRequirement: {}
   StepInputExpressionRequirement: {}
-  ResourceRequirement:
-    coresMin: 3
-    coresMax: 5
-    ramMin: 3000
-    ramMax: 3800
+  
 
 inputs:
   input_data_dir: Directory
