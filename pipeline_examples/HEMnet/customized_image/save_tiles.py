@@ -31,13 +31,6 @@ if __name__ == "__main__":
         help="Prefix that defines the slides used in this step.",
     )
     parser.add_argument(
-        "-a",
-        "--align_mag",
-        type=float,
-        default=2,
-        help="Magnification for aligning H&E and TP53 slide",
-    )
-    parser.add_argument(
         "-m",
         "--tile_mag",
         type=float,
@@ -46,20 +39,6 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "-ts", "--tile_size", type=int, default=224, help="Output tile size in pixels"
-    )
-    parser.add_argument(
-        "-c",
-        "--cancer_thresh",
-        type=restricted_float,
-        default=0.39,
-        help="TP53 threshold for cancer classification",
-    )
-    parser.add_argument(
-        "-nc",
-        "--non_cancer_thresh",
-        type=restricted_float,
-        default=0.40,
-        help="TP53 threshold for non-cancer classification",
     )
     parser.add_argument(
         "-v", "--verbosity", action="store_true", help="Increase output verbosity"
@@ -86,10 +65,7 @@ if __name__ == "__main__":
     NORMALISER_PATH = args.normaliser_path
 
     # User selectable parameters
-    ALIGNMENT_MAG = args.align_mag
     VERBOSE = args.verbosity
-    CANCER_THRESH = args.cancer_thresh
-    NON_CANCER_THRESH = args.non_cancer_thresh
     TILE_MAG = args.tile_mag
     OUTPUT_TILE_SIZE = args.tile_size
 
