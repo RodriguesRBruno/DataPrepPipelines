@@ -116,6 +116,7 @@ steps:
       tiles_files: per_image_extraction/cancer_tiles
       final_dir_name: 
         valueFrom: cancer
+      tile_magnify: tile_magnify
     out: [merged_tiles_dir]
   
   merge_non_cancer_tiles:
@@ -124,6 +125,7 @@ steps:
       tiles_files: per_image_extraction/non_cancer_tiles
       final_dir_name: 
         valueFrom: non_cancer
+      tile_magnify: tile_magnify
     out: [merged_tiles_dir]
 
   merge_uncertain_tiles:
@@ -132,6 +134,7 @@ steps:
       tiles_files: per_image_extraction/uncertain_tiles
       final_dir_name: 
         valueFrom: uncertain
+      tile_magnify: tile_magnify
     out: [merged_tiles_dir]
 
   consolidate_metrics:

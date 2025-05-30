@@ -18,12 +18,14 @@ inputs:
         items: [File]
 
   final_dir_name: string
-
+  tile_magnify:
+    type: float
+    default: 10
 outputs:
   merged_tiles_dir: Directory
 
 expression: |
  ${ 
-  var final_dir = {"class": "Directory", "basename": "tiles_/"+inputs.final_dir_name, "listing": inputs.tiles_files.flat(Infinity)}
+  var final_dir = {"class": "Directory", "basename": "tiles_"+inputs.tile_magnify+"/"+inputs.final_dir_name, "listing": inputs.tiles_files.flat(Infinity)}
   return {"merged_tiles_dir": final_dir}
   }
