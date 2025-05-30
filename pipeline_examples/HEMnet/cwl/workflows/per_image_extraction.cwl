@@ -21,6 +21,18 @@ outputs:
       type: File
       outputSource: save_tiles/performance_csv
     
+    cancer_tiles:
+      type: File[]
+      outputSource: save_tiles/cancer_tiles
+    
+    non_cancer_tiles:
+      type: File[]
+      outputSource: save_tiles/non_cancer_tiles
+
+    uncertain_tiles:
+      type: File[]
+      outputSource: save_tiles/uncertain_tiles
+
     tiles_dir:
       type: Directory
       outputSource: rename_tiles_dir/renamed_tiles_dir
@@ -81,7 +93,7 @@ steps:
       c_mask_filtered: generate_masks/c_mask_filtered
       non_c_mask_filtered: generate_masks/non_c_mask_filtered
       t_mask_filtered: generate_masks/t_mask_filtered
-    out: [tiles_dir, performance_csv]
+    out: [tiles_dir, performance_csv, cancer_tiles, non_cancer_tiles, uncertain_tiles]
 
   merge_verbose_images:
     run: ../individual_steps/merge_verbose_images.cwl

@@ -15,13 +15,27 @@ outputs:
       type: File
       outputSource: consolidate_metrics/performance_csv
 
-    tiles_dirs:
-      type: Directory[]
-      outputSource: per_image_extraction/tiles_dir
+    cancer_tiles_dir:
+      type: Directory
+      outputSource: merge_cancer_tiles/merged_tiles_dir
+
+    non_cancer_tiles_dir:
+      type: Directory
+      outputSource: merge_non_cancer_tiles/merged_tiles_dir
+
+    uncertain_tiles_dir:
+      type: Directory
+      outputSource: merge_uncertain_tiles/merged_tiles_dir
 
     verbose_images:
-      type: File[]
-      outputSource: merge_verbose_images/merged_images
+      type: 
+        type: array
+        items:
+          type: array
+          items: [File]
+
+      outputSource: per_image_extraction/verbose_images
+
 
 steps:
   normaliser_step:
@@ -49,13 +63,37 @@ steps:
       input_data_dir: input_data
       base_normaliser_pkl: normaliser_step/base_normaliser_pkl
       image_prefix: convert_file_to_array/image_prefixes_array
-    out: [performance_csv, verbose_images, tiles_dir]
+    out: [performance_csv, verbose_images, tiles_dir, cancer_tiles, uncertain_tiles, non_cancer_tiles]
 
-  merge_verbose_images:
-    run: ../individual_steps/merge_verbose_images_in_main_workflow.cwl
-    in: 
-      verbose_images: per_image_extraction/verbose_images
-    out: [merged_images]
+  merge_cancer_tiles:
+    run: ../individual_steps/merge_tiles_files.cwl
+    in:
+      tiles_files: per_image_extraction/cancer_tiles
+      final_dir_name: 
+        valueFrom: cancer
+    out: [merged_tiles_dir]
+  
+  merge_non_cancer_tiles:
+    run: ../individual_steps/merge_tiles_files.cwl
+    in:
+      tiles_files: per_image_extraction/non_cancer_tiles
+      final_dir_name: 
+        valueFrom: non_cancer
+    out: [merged_tiles_dir]
+
+  merge_uncertain_tiles:
+    run: ../individual_steps/merge_tiles_files.cwl
+    in:
+      tiles_files: per_image_extraction/uncertain_tiles
+      final_dir_name: 
+        valueFrom: uncertain
+    out: [merged_tiles_dir]
+
+  # merge_tiles_dirs:
+  #   run: ../individual_steps/merge_tiles_dirs.cwl
+  #   in:
+  #     tiles_dirs: per_image_extraction/tiles_dir
+  #   out: [merged_tiles_dir]
 
   consolidate_metrics:
     run: ../individual_steps/consolidate_metrics.cwl

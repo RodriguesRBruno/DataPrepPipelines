@@ -71,6 +71,21 @@ outputs:
     outputBinding:
       glob: "$(runtime.outdir)/.tmp/$(inputs.image_prefix)/performance_metrics.csv"
 
+  cancer_tiles:
+    type: File[]
+    outputBinding:
+      glob: "$(runtime.outdir)/data/tiles_*/cancer/*.jpeg"
+  
+  non_cancer_tiles:
+    type: File[]
+    outputBinding:
+      glob: "$(runtime.outdir)/data/tiles_*/non_cancer/*.jpeg"
+
+  uncertain_tiles:
+    type: File[]
+    outputBinding:
+      glob: "$(runtime.outdir)/data/tiles_*/uncertain/*.jpeg"
+
   tiles_dir:
     type: Directory
     outputBinding:
