@@ -28,10 +28,10 @@ inputs:
         - vahadane
         - macenko
         - reinhard
-        - "null"
+        - "none"
     default: vahadane
     inputBinding:
-      position: 2
+      position: 2 
       prefix: "--normaliser"
       
   alignment_magnify:
