@@ -1,5 +1,4 @@
 input_data:
   class: Directory
   path: ../../svs
-tile_magnify: 5
 verbosity: true
