@@ -32,7 +32,7 @@ inputs:
       position: 3
       prefix: --subject-subdir
 
-  performance_csv: 
+  performance_csv_in: 
     type: File
     inputBinding:
       position: 4
@@ -83,7 +83,7 @@ inputs:
       prefix: "-v"
 
 outputs:
-  performance_csv:
+  performance_csv_out:
     type: File
     outputBinding:
       glob: "$(runtime.outdir)/.tmp/$(inputs.image_prefix)/performance_metrics.csv"

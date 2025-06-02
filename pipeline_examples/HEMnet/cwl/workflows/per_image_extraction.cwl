@@ -39,7 +39,7 @@ inputs:
 outputs:
     performance_csv:
       type: File
-      outputSource: save_tiles/performance_csv
+      outputSource: save_tiles/performance_csv_out
     
     cancer_tiles:
       type: File[]
@@ -76,20 +76,20 @@ steps:
     run: ../individual_steps/affine_registration.cwl
     in:
         input_data_dir: input_data_dir
-        performance_csv: image_registration/performance_csv
+        performance_csv_in: image_registration/performance_csv
         he_gray_img: image_registration/he_gray_img
         tp53_gray_img: image_registration/tp53_gray_img
         image_prefix: image_prefix
         alignment_magnify: alignment_magnify
         verbosity: verbosity
-    out: [performance_csv, moving_resampled_affine, affine_transform, verbose_images]
+    out: [performance_csv_out, moving_resampled_affine, affine_transform, verbose_images]
   
   bspline_registration:
     run: ../individual_steps/bspline_registration.cwl
     in:
       input_data_dir: input_data_dir
       image_prefix: image_prefix
-      performance_csv: affine_registration/performance_csv
+      performance_csv_in: affine_registration/performance_csv_out
       he_gray_img: image_registration/he_gray_img
       tp53_gray_img: image_registration/tp53_gray_img
       he_norm_img: image_registration/he_norm_img
@@ -97,7 +97,7 @@ steps:
       affine_transform: affine_registration/affine_transform
       alignment_magnify: alignment_magnify
       verbosity: verbosity
-    out: [performance_csv, he_filtered, tp53_filtered, verbose_images]
+    out: [performance_csv_out, he_filtered, tp53_filtered, verbose_images]
 
   generate_masks:
     run: ../individual_steps/generate_masks.cwl
@@ -119,7 +119,7 @@ steps:
     in:
       input_data_dir: input_data_dir
       image_prefix: image_prefix
-      performance_csv: bspline_registration/performance_csv
+      performance_csv_in: bspline_registration/performance_csv_out
       specific_normaliser: image_registration/specific_normaliser
       u_mask_filtered: generate_masks/u_mask_filtered
       c_mask_filtered: generate_masks/c_mask_filtered
@@ -127,7 +127,7 @@ steps:
       t_mask_filtered: generate_masks/t_mask_filtered
       tile_magnify: tile_magnify
       tile_size: output_tile_size
-    out: [tiles_dir, performance_csv, cancer_tiles, non_cancer_tiles, uncertain_tiles]
+    out: [tiles_dir, performance_csv_out, cancer_tiles, non_cancer_tiles, uncertain_tiles]
 
   merge_verbose_images:
     run: ../individual_steps/merge_verbose_images.cwl

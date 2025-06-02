@@ -26,7 +26,7 @@ inputs:
   input_data_dir:
     type: Directory
 
-  performance_csv: 
+  performance_csv_in: 
     type: File
     inputBinding:
       position: 3
@@ -66,7 +66,7 @@ inputs:
 
 
 outputs:
-  performance_csv:
+  performance_csv_out:
     type: File
     outputBinding:
       glob: "$(runtime.outdir)/.tmp/$(inputs.image_prefix)/performance_metrics.csv"
