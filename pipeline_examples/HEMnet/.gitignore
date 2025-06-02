@@ -3,3 +3,5 @@ svs/
 data*/
 workspace*/*
 cache*/
+logs.*
+output*/

@@ -28,8 +28,13 @@ inputs:
       prefix: --parameters_file
 
 outputs:
-  output_dir:
+  images_dir:
     type: Directory
     outputBinding:
-      glob: $(runtime.outdir)
+      glob: $(runtime.outdir)/images
+
+  data_csv:
+    type: File
+    outputBinding:
+      glob: $(runtime.outdir)/data.csv
     
