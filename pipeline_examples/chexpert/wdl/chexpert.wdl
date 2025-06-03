@@ -4,12 +4,14 @@ workflow chexpert {
     Directory input_data_dir
     Directory labels_path
     File parameters_file
+    String? output_dir_name='data'
   }
   call prepare {
     input:
       input_data_dir=input_data_dir,
       labels_path=labels_path,
-      parameters_file=parameters_file
+      parameters_file=parameters_file,
+      output_dir_name=output_dir_name
   }
 
   output {
@@ -23,9 +25,10 @@ task prepare {
     Directory input_data_dir
     Directory labels_path
     File parameters_file
-    Directory? output_path="./data"
+    String? output_dir_name='data'
   }
 
+Directory output_path = "./~{output_dir_name}"
 runtime {
     container: "mlcommons/chexpert-prep:0.1.0"
 }
