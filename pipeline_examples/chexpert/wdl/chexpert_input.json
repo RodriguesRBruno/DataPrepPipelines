@@ -1,0 +1,7 @@
+{
+    "chexpert.input_data_dir": "../workspace/CheXPert-v1.0-small",
+    "chexpert.labels_path": "../workspace/CheXPert-v1.0-small",
+    "chexpert.parameters_file": "../workspace/parameters.yaml"
+
+
+}
