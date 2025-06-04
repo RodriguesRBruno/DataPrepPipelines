@@ -31,7 +31,7 @@ NOTES:
 
 7. A directory named `output` should be created.
 
-8. Outputs from CheXpert will be located at:
+8. Outputs from HEMnet will be located at:
    - `output/tiles_10x`: tiles magnified by 10x (default option; can be specified in `hemnet_input.yaml` for different values if desired), categorized as cancer tiles, non-cancer tiles or uncertain tiles.
    - `output/*.jpeg`: various images saved during execution for debugging purposes. Only appear if `verbosity: true` is specified in the `hemnet_input.yaml` file (default)
    - `output/performance_metrics.csv`: performance metrics for the pipeline run
