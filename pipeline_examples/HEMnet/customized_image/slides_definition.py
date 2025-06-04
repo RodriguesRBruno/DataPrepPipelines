@@ -1,4 +1,5 @@
 from mod_constants import INPUT_PATH
+import argparse
 
 
 def slides_definition():
@@ -22,5 +23,17 @@ def slides_definition():
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "-l",
+        "--lines",
+        action="store_true",
+        help="Output one pair per line, rater than as a list",
+    )
+    args = parser.parse_args()
     prefixes = slides_definition()
-    print(prefixes)
+
+    if args.lines:
+        print(*prefixes, sep="\n")
+    else:
+        print(prefixes)
